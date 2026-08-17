@@ -1,0 +1,4398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RPS AI Lab</title>
+
+<style>
+*{box-sizing:border-box}
+
+:root{
+    --bg:#080c16;
+    --panel:#111827;
+    --panel2:#172033;
+    --border:#27334a;
+    --text:#f3f6ff;
+    --muted:#98a5bd;
+    --accent:#718cff;
+    --green:#35d98b;
+    --red:#ff6878;
+    --yellow:#f3c95b;
+}
+
+body{
+    margin:0;
+    background:linear-gradient(145deg,#070b13,#10182a);
+    color:var(--text);
+    font-family:Arial,Helvetica,sans-serif;
+}
+
+button,input{
+    font:inherit;
+}
+
+button{
+    cursor:pointer;
+}
+
+.app{
+    max-width:1200px;
+    margin:auto;
+    padding:18px;
+}
+
+.header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:15px;
+    margin-bottom:18px;
+}
+
+.logo{
+    font-size:25px;
+    font-weight:800;
+}
+
+.logo span{
+    color:var(--accent);
+}
+
+.subtitle{
+    color:var(--muted);
+    font-size:12px;
+    margin-top:4px;
+}
+
+.badge{
+    padding:8px 12px;
+    border:1px solid var(--border);
+    border-radius:20px;
+    background:var(--panel);
+    color:var(--muted);
+    font-size:12px;
+}
+
+.nav{
+    display:flex;
+    gap:7px;
+    overflow-x:auto;
+    margin-bottom:18px;
+}
+
+.nav button{
+    background:var(--panel);
+    border:1px solid var(--border);
+    color:var(--muted);
+    padding:10px 14px;
+    border-radius:10px;
+    white-space:nowrap;
+}
+
+.nav button.active{
+    background:#1c2948;
+    color:white;
+    border-color:var(--accent);
+}
+
+.page{
+    display:none;
+}
+
+.page.active{
+    display:block;
+}
+
+.hero{
+    padding:28px;
+    border-radius:18px;
+    border:1px solid var(--border);
+    background:
+        radial-gradient(circle at 80% 0,#243d78,#151e32 45%,#111827);
+    margin-bottom:15px;
+}
+
+.hero h1{
+    margin:0 0 8px;
+    font-size:30px;
+}
+
+.hero p{
+    color:var(--muted);
+    max-width:750px;
+    line-height:1.6;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:12px;
+}
+
+.grid2{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:12px;
+}
+
+.card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:15px;
+    padding:17px;
+}
+
+.card.click{
+    cursor:pointer;
+    transition:.15s;
+}
+
+.card.click:hover{
+    transform:translateY(-2px);
+    border-color:#536aa5;
+}
+
+.card h2,
+.card h3{
+    margin-top:0;
+}
+
+.muted{
+    color:var(--muted);
+}
+
+.stat{
+    font-size:27px;
+    font-weight:800;
+    margin-top:5px;
+}
+
+.label{
+    color:var(--muted);
+    font-size:11px;
+    letter-spacing:.5px;
+}
+
+.actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+
+.btn{
+    border:1px solid var(--border);
+    background:#19243c;
+    color:white;
+    padding:10px 14px;
+    border-radius:10px;
+}
+
+.btn.primary{
+    background:#526bd0;
+    border-color:#7189ed;
+}
+
+.btn.good{
+    background:#124a37;
+    border-color:#25785b;
+}
+
+.btn.danger{
+    background:#4b1d28;
+    border-color:#79313f;
+}
+
+.btn.small{
+    padding:7px 10px;
+    font-size:12px;
+}
+
+.movegrid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+}
+
+.move{
+    background:#151f35;
+    color:white;
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:18px 10px;
+    font-size:27px;
+}
+
+.move:hover{
+    border-color:var(--accent);
+    background:#1b2948;
+}
+
+.move small{
+    display:block;
+    color:var(--muted);
+    font-size:11px;
+    margin-top:5px;
+}
+
+.note{
+    background:#111a2c;
+    border-left:3px solid var(--accent);
+    padding:12px;
+    border-radius:8px;
+    color:var(--muted);
+    margin:12px 0;
+    line-height:1.5;
+}
+
+.bigpred{
+    text-align:center;
+    background:#101a2e;
+    border:1px solid var(--border);
+    border-radius:15px;
+    padding:20px;
+}
+
+.bigmove{
+    font-size:50px;
+}
+
+.prob{
+    margin:12px 0;
+}
+
+.prob-head{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:5px;
+}
+
+.bar{
+    height:9px;
+    border-radius:20px;
+    background:#263148;
+    overflow:hidden;
+}
+
+.bar i{
+    display:block;
+    height:100%;
+    background:var(--accent);
+}
+
+.pill{
+    display:inline-block;
+    background:#202c49;
+    color:#dce4ff;
+    padding:5px 9px;
+    border-radius:20px;
+    font-size:11px;
+}
+
+.goodtext{
+    color:var(--green);
+}
+
+.badtext{
+    color:var(--red);
+}
+
+.drawtext{
+    color:var(--yellow);
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th,td{
+    padding:9px;
+    border-bottom:1px solid var(--border);
+    text-align:left;
+    font-size:13px;
+}
+
+th{
+    color:#aeb9d0;
+}
+
+.scroll{
+    overflow:auto;
+    max-height:560px;
+}
+
+.chart{
+    height:210px;
+    display:flex;
+    align-items:end;
+    gap:8px;
+    padding:15px 5px;
+    border-bottom:1px solid var(--border);
+}
+
+.column{
+    flex:1;
+    min-width:12px;
+    background:#647fe2;
+    border-radius:5px 5px 0 0;
+    position:relative;
+}
+
+.column span{
+    position:absolute;
+    bottom:100%;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:9px;
+    color:var(--muted);
+    white-space:nowrap;
+}
+
+.model{
+    margin:12px 0;
+}
+
+.model-line{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:5px;
+}
+
+footer{
+    text-align:center;
+    color:#68748b;
+    font-size:11px;
+    padding:25px 0;
+}
+
+input[type=file]{
+    max-width:100%;
+}
+
+@media(max-width:750px){
+    .grid,
+    .grid2{
+        grid-template-columns:1fr;
+    }
+
+    .movegrid{
+        grid-template-columns:1fr;
+    }
+
+    .header{
+        align-items:flex-start;
+        flex-direction:column;
+    }
+
+    .hero h1{
+        font-size:25px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<header class="header">
+
+    <div>
+        <div class="logo">
+            RPS <span>AI LAB</span>
+        </div>
+
+        <div class="subtitle">
+            Rock Paper Scissors behavior research and prediction
+        </div>
+    </div>
+
+    <div class="badge" id="roundBadge">
+        0 rounds
+    </div>
+
+</header>
+
+<nav class="nav">
+
+    <button data-page="home" class="active">
+        Home
+    </button>
+
+    <button data-page="collection">
+        Collection
+    </button>
+
+    <button data-page="prediction">
+        Prediction
+    </button>
+
+    <button data-page="analysis">
+        Analysis
+    </button>
+
+    <button data-page="history">
+        History
+    </button>
+
+    <button data-page="data">
+        Data
+    </button>
+
+</nav>
+
+
+<!-- HOME -->
+
+<section id="home" class="page active">
+
+<div class="hero">
+
+    <h1>
+        Find an edge — don't assume one exists.
+    </h1>
+
+    <p>
+        This laboratory records Rock Paper Scissors rounds,
+        analyzes the bot's behavior, tests several prediction
+        models and measures their performance on future rounds.
+    </p>
+
+    <div class="actions">
+
+        <button class="btn primary"
+                onclick="go('collection')">
+            Start collecting
+        </button>
+
+        <button class="btn"
+                onclick="go('prediction')">
+            AI prediction
+        </button>
+
+        <button class="btn"
+                onclick="go('analysis')">
+            Analysis lab
+        </button>
+
+    </div>
+
+</div>
+
+
+<div class="grid">
+
+    <div class="card click"
+         onclick="go('collection')">
+
+        <h3>🧪 Data Collection</h3>
+
+        <p class="muted">
+            Record clean rounds without seeing
+            AI recommendations.
+        </p>
+
+    </div>
+
+
+    <div class="card click"
+         onclick="go('prediction')">
+
+        <h3>🤖 AI Prediction</h3>
+
+        <p class="muted">
+            Estimate the probability of the bot's
+            next move and calculate a recommendation.
+        </p>
+
+    </div>
+
+
+    <div class="card click"
+         onclick="go('analysis')">
+
+        <h3>🔬 Analysis Lab</h3>
+
+        <p class="muted">
+            Examine transitions, sequences,
+            streaks and behavioral changes.
+        </p>
+
+    </div>
+
+</div>
+
+
+<div class="grid" style="margin-top:12px">
+
+    <div class="card">
+
+        <div class="label">
+            TOTAL ROUNDS
+        </div>
+
+        <div class="stat"
+             id="homeRounds">
+            0
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="label">
+            PREDICTION ACCURACY
+        </div>
+
+        <div class="stat"
+             id="homeAccuracy">
+            —
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <div class="label">
+            RECOMMENDATION WIN RATE
+        </div>
+
+        <div class="stat"
+             id="homeWinRate">
+            —
+        </div>
+
+    </div>
+
+</div>
+
+</section>
+
+
+<!-- COLLECTION -->
+
+<section id="collection" class="page">
+
+<div class="grid2">
+
+<div class="card">
+
+    <h2>🧪 Clean Data Collection</h2>
+
+    <p class="muted">
+        Select your move. Then reveal the bot's move.
+        No prediction is shown.
+    </p>
+
+    <div id="collectionMoves"
+         class="movegrid">
+    </div>
+
+    <div id="collectionState"
+         class="note">
+        Choose your move to begin.
+    </div>
+
+    <button class="btn danger"
+            onclick="cancelPending()">
+        Cancel pending round
+    </button>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Blind Evaluation</h2>
+
+    <p class="muted">
+        The AI secretly predicts before you reveal
+        the bot's move. The prediction remains hidden
+        until the result is recorded.
+    </p>
+
+    <button class="btn primary"
+            onclick="startBlind()">
+        Start blind round
+    </button>
+
+    <div id="blindBox"
+         class="note">
+        No blind round active.
+    </div>
+
+</div>
+
+</div>
+
+</section>
+
+
+<!-- PREDICTION -->
+
+<section id="prediction" class="page">
+
+<div class="grid2">
+
+<div class="card">
+
+    <h2>🤖 AI Prediction</h2>
+
+    <p class="muted">
+        The prediction is generated using only rounds
+        that existed before the current round.
+    </p>
+
+    <div id="predictionBefore">
+
+        <div id="predictionMoves"
+             class="movegrid">
+        </div>
+
+        <div class="note">
+            Select your move to generate the prediction.
+        </div>
+
+    </div>
+
+
+    <div id="predictionAfter"
+         style="display:none">
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Model Performance</h2>
+
+    <div id="modelScores">
+        <p class="muted">
+            Collect more rounds to evaluate the models.
+        </p>
+    </div>
+
+</div>
+
+</div>
+
+</section>
+
+
+<!-- ANALYSIS -->
+
+<section id="analysis" class="page">
+
+<div class="grid">
+
+<div class="card">
+
+    <div class="label">
+        BOT ROCK
+    </div>
+
+    <div class="stat"
+         id="analysisR">
+        0%
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <div class="label">
+        BOT PAPER
+    </div>
+
+    <div class="stat"
+         id="analysisP">
+        0%
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <div class="label">
+        BOT SCISSORS
+    </div>
+
+    <div class="stat"
+         id="analysisS">
+        0%
+    </div>
+
+</div>
+
+</div>
+
+
+<div class="grid2"
+     style="margin-top:12px">
+
+<div class="card">
+
+    <h2>Bot Distribution</h2>
+
+    <div id="botChart"
+         class="chart">
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Recent Behavior</h2>
+
+    <div id="recentChart"
+         class="chart">
+    </div>
+
+</div>
+
+</div>
+
+
+<div class="grid2"
+     style="margin-top:12px">
+
+<div class="card">
+
+    <h2>Response to Your Move</h2>
+
+    <div id="conditionalAnalysis">
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Bot Transitions</h2>
+
+    <div id="transitionAnalysis">
+    </div>
+
+</div>
+
+</div>
+
+
+<div class="grid2"
+     style="margin-top:12px">
+
+<div class="card">
+
+    <h2>Streaks & Repetition</h2>
+
+    <div id="streakAnalysis">
+    </div>
+
+</div>
+
+
+<div class="card">
+
+    <h2>Behavior Change Detection</h2>
+
+    <div id="changeAnalysis">
+    </div>
+
+</div>
+
+</div>
+
+
+<div class="card"
+     style="margin-top:12px">
+
+    <h2>
+        Discovered Patterns
+    </h2>
+
+    <p class="muted">
+        Small samples are deliberately down-weighted.
+        A pattern appearing four times is not treated as
+        proof of a rule.
+    </p>
+
+    <div id="patternAnalysis">
+    </div>
+
+</div>
+
+</section>
+
+
+<!-- HISTORY -->
+
+<section id="history" class="page">
+
+<div class="card">
+
+<div class="header">
+
+<div>
+
+<h2>
+    History
+</h2>
+
+<div class="muted">
+    Complete round-by-round audit.
+</div>
+
+</div>
+
+<button class="btn danger"
+        onclick="clearData()">
+    Delete all
+</button>
+
+</div>
+
+
+<div class="scroll">
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>#</th>
+<th>You</th>
+<th>Bot</th>
+<th>Result</th>
+<th>Prediction</th>
+<th>Recommendation</th>
+<th>Confidence</th>
+<th>Mode</th>
+
+</tr>
+
+</thead>
+
+<tbody id="historyBody">
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</section>
+
+
+<!-- DATA -->
+
+<section id="data" class="page">
+
+<div class="grid2">
+
+<div class="card">
+
+<h2>Export</h2>
+
+<p class="muted">
+    Back up your experiment or transfer it to
+    another browser.
+</p>
+
+<button class="btn primary"
+        onclick="exportJSON()">
+    Export JSON
+</button>
+
+<button class="btn"
+        onclick="exportCSV()">
+    Export CSV
+</button>
+
+</div>
+
+
+<div class="card">
+
+<h2>Import</h2>
+
+<input type="file"
+       id="importFile"
+       accept=".json,.csv">
+
+<br><br>
+
+<button class="btn"
+        onclick="importFile()">
+    Import
+</button>
+
+<div class="note">
+    Imported rounds are appended to the current dataset.
+</div>
+
+</div>
+
+</div>
+
+
+<div class="card"
+     style="margin-top:12px">
+
+<h2>Experiment Rules</h2>
+
+<ul class="muted">
+
+<li>
+    Models only receive information available before
+    the target round.
+</li>
+
+<li>
+    Prediction accuracy measures whether the predicted
+    bot move was correct.
+</li>
+
+<li>
+    Recommendation win rate measures whether the
+    recommended counter actually won.
+</li>
+
+<li>
+    Pattern strength is reduced when sample size is low.
+</li>
+
+<li>
+    The Feature ML model is a lightweight browser-side
+    Naive-Bayes-style classifier, not an LLM.
+</li>
+
+</ul>
+
+</div>
+
+</section>
+
+
+<footer>
+RPS AI Lab • Local-first experiment • Your data stays in this browser
+</footer>
+
+</div>
+
+
+<script>
+
+/* =========================================================
+   CONFIGURATION
+========================================================= */
+
+const STORAGE_KEY =
+    "rps_ai_lab_v2";
+
+
+const MOVES = {
+
+    R:{
+        name:"Rock",
+        emoji:"🪨"
+    },
+
+    P:{
+        name:"Paper",
+        emoji:"📄"
+    },
+
+    S:{
+        name:"Scissors",
+        emoji:"✂️"
+    }
+
+};
+
+
+const BEATS = {
+
+    R:"S",
+    P:"R",
+    S:"P"
+
+};
+
+
+/* =========================================================
+   STATE
+========================================================= */
+
+let rounds =
+    loadData();
+
+let pending =
+    null;
+
+let blindRound =
+    null;
+
+
+/* =========================================================
+   STORAGE
+========================================================= */
+
+function loadData(){
+
+    try{
+
+        const raw =
+            localStorage.getItem(STORAGE_KEY);
+
+        if(!raw)
+            return [];
+
+        const parsed =
+            JSON.parse(raw);
+
+        return Array.isArray(parsed)
+            ? parsed
+            : [];
+
+    }catch(e){
+
+        console.error(e);
+
+        return [];
+
+    }
+
+}
+
+
+function saveData(){
+
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(rounds)
+    );
+
+    refreshEverything();
+
+}
+
+
+/* =========================================================
+   NAVIGATION
+========================================================= */
+
+document
+.querySelectorAll(".nav button")
+.forEach(button=>{
+
+    button.addEventListener(
+        "click",
+        ()=>{
+            go(button.dataset.page);
+        }
+    );
+
+});
+
+
+function go(page){
+
+    document
+    .querySelectorAll(".page")
+    .forEach(p=>{
+        p.classList.remove("active");
+    });
+
+
+    document
+    .getElementById(page)
+    .classList.add("active");
+
+
+    document
+    .querySelectorAll(".nav button")
+    .forEach(b=>{
+
+        b.classList.toggle(
+            "active",
+            b.dataset.page===page
+        );
+
+    });
+
+
+    refreshEverything();
+
+}
+
+
+/* =========================================================
+   BASIC HELPERS
+========================================================= */
+
+function randomId(){
+
+    if(
+        window.crypto &&
+        crypto.randomUUID
+    ){
+
+        return crypto.randomUUID();
+
+    }
+
+    return (
+        Date.now() +
+        "-" +
+        Math.random()
+        .toString(36)
+        .slice(2)
+    );
+
+}
+
+
+function moveName(move){
+
+    return MOVES[move]
+        ? MOVES[move].name
+        : "Unknown";
+
+}
+
+
+function moveDisplay(move){
+
+    return MOVES[move]
+        ? MOVES[move].emoji +
+          " " +
+          MOVES[move].name
+        : "—";
+
+}
+
+
+function getResult(player,bot){
+
+    if(player===bot)
+        return "D";
+
+    if(BEATS[player]===bot)
+        return "W";
+
+    return "L";
+
+}
+
+
+function resultText(result){
+
+    if(result==="W")
+        return "WIN";
+
+    if(result==="L")
+        return "LOSS";
+
+    return "DRAW";
+
+}
+
+
+function resultClass(result){
+
+    if(result==="W")
+        return "goodtext";
+
+    if(result==="L")
+        return "badtext";
+
+    return "drawtext";
+
+}
+
+
+function countMoves(list){
+
+    return {
+
+        R:list.filter(x=>x==="R").length,
+
+        P:list.filter(x=>x==="P").length,
+
+        S:list.filter(x=>x==="S").length
+
+    };
+
+}
+
+
+function probabilities(
+    counts,
+    smoothing=1
+){
+
+    const total =
+        counts.R +
+        counts.P +
+        counts.S +
+        smoothing*3;
+
+
+    return {
+
+        R:(counts.R+smoothing)/total,
+
+        P:(counts.P+smoothing)/total,
+
+        S:(counts.S+smoothing)/total
+
+    };
+
+}
+
+
+function normalize(p){
+
+    const total =
+        p.R+p.P+p.S;
+
+    if(!total){
+
+        return {
+            R:1/3,
+            P:1/3,
+            S:1/3
+        };
+
+    }
+
+    return {
+
+        R:p.R/total,
+        P:p.P/total,
+        S:p.S/total
+
+    };
+
+}
+
+
+function bestMove(p){
+
+    return ["R","P","S"]
+    .sort((a,b)=>p[b]-p[a])[0];
+
+}
+
+
+function counterMove(move){
+
+    return BEATS[
+        ["R","P","S"]
+        .find(m=>BEATS[m]===move)
+    ];
+
+}
+
+
+/* =========================================================
+   DATA COLLECTION
+========================================================= */
+
+function createMoveButtons(
+    containerId,
+    handlerName
+){
+
+    const container =
+        document.getElementById(
+            containerId
+        );
+
+
+    container.innerHTML =
+        ["R","P","S"]
+        .map(move=>`
+
+            <button
+                class="move"
+                onclick="${handlerName}('${move}')">
+
+                ${MOVES[move].emoji}
+                ${MOVES[move].name}
+
+                <small>
+                    Select ${MOVES[move].name}
+                </small>
+
+            </button>
+
+        `)
+        .join("");
+
+}
+
+
+createMoveButtons(
+    "collectionMoves",
+    "chooseCollectionMove"
+);
+
+
+createMoveButtons(
+    "predictionMoves",
+    "choosePredictionMove"
+);
+
+
+function chooseCollectionMove(move){
+
+    pending = {
+
+        mode:"collection",
+
+        player:move
+
+    };
+
+
+    document
+    .getElementById("collectionState")
+    .innerHTML = `
+
+        You selected
+        <b>${moveDisplay(move)}</b>.
+
+        Now reveal the bot's move.
+
+    `;
+
+
+    const container =
+        document.getElementById(
+            "collectionMoves"
+        );
+
+
+    container.innerHTML =
+        ["R","P","S"]
+        .map(bot=>`
+
+            <button
+                class="move"
+                onclick="finishPending('${bot}')">
+
+                ${moveDisplay(bot)}
+
+            </button>
+
+        `)
+        .join("");
+
+}
+
+
+function cancelPending(){
+
+    pending=null;
+
+    createMoveButtons(
+        "collectionMoves",
+        "chooseCollectionMove"
+    );
+
+    document
+    .getElementById("collectionState")
+    .textContent =
+        "Pending round cancelled.";
+
+}
+
+
+function finishPending(bot){
+
+    if(!pending)
+        return;
+
+
+    const round = {
+
+        id:randomId(),
+
+        timestamp:
+            new Date().toISOString(),
+
+        playerMove:
+            pending.player,
+
+        botMove:
+            bot,
+
+        result:
+            getResult(
+                pending.player,
+                bot
+            ),
+
+        mode:
+            pending.mode,
+
+        prediction:
+            pending.prediction || null,
+
+        recommendation:
+            pending.recommendation || null,
+
+        confidence:
+            pending.confidence || null,
+
+        modelAgreement:
+            pending.modelAgreement || null,
+
+        modelWeights:
+            pending.modelWeights || null
+
+    };
+
+
+    rounds.push(round);
+
+    pending=null;
+
+    saveData();
+
+
+    createMoveButtons(
+        "collectionMoves",
+        "chooseCollectionMove"
+    );
+
+
+    document
+    .getElementById("collectionState")
+    .textContent =
+        "Round recorded. Choose your next move.";
+
+}
+
+
+/* =========================================================
+   MODEL 1 — OVERALL FREQUENCY
+========================================================= */
+
+function frequencyModel(index){
+
+    const before =
+        rounds.slice(0,index);
+
+
+    const counts =
+        countMoves(
+            before.map(x=>x.botMove)
+        );
+
+
+    return probabilities(counts);
+
+}
+
+
+/* =========================================================
+   MODEL 2 — RESPONSE TO PLAYER MOVE
+========================================================= */
+
+function conditionalModel(index){
+
+    const current =
+        rounds[index];
+
+
+    if(!current)
+        return {
+            R:1/3,
+            P:1/3,
+            S:1/3
+        };
+
+
+    const matches =
+        rounds
+        .slice(0,index)
+        .filter(
+            r =>
+            r.playerMove ===
+            current.playerMove
+        );
+
+
+    if(matches.length<3)
+        return frequencyModel(index);
+
+
+    return probabilities(
+        countMoves(
+            matches.map(
+                r=>r.botMove
+            )
+        )
+    );
+
+}
+
+
+/* =========================================================
+   MODEL 3 — PREVIOUS BOT TRANSITION
+========================================================= */
+
+function transitionModel(index){
+
+    if(index<1)
+        return frequencyModel(index);
+
+
+    const previousBot =
+        rounds[index-1].botMove;
+
+
+    const matches=[];
+
+
+    for(
+        let i=1;
+        i<index;
+        i++
+    ){
+
+        if(
+            rounds[i-1].botMove===
+            previousBot
+        ){
+
+            matches.push(
+                rounds[i].botMove
+            );
+
+        }
+
+    }
+
+
+    if(matches.length<4)
+        return frequencyModel(index);
+
+
+    return probabilities(
+        countMoves(matches)
+    );
+
+}
+
+
+/* =========================================================
+   MODEL 4 — MARKOV / COMBINED CONTEXT
+========================================================= */
+
+function markovModel(index){
+
+    if(index<2)
+        return conditionalModel(index);
+
+
+    const current =
+        rounds[index];
+
+    const previous =
+        rounds[index-1];
+
+
+    let matches=[];
+
+
+    for(
+        let i=2;
+        i<index;
+        i++
+    ){
+
+        if(
+
+            rounds[i].playerMove ===
+            current.playerMove
+
+            &&
+
+            rounds[i-1].playerMove ===
+            previous.playerMove
+
+            &&
+
+            rounds[i-1].botMove ===
+            previous.botMove
+
+        ){
+
+            matches.push(
+                rounds[i].botMove
+            );
+
+        }
+
+    }
+
+
+    if(matches.length<4){
+
+        matches=[];
+
+
+        for(
+            let i=1;
+            i<index;
+            i++
+        ){
+
+            if(
+
+                rounds[i].playerMove ===
+                current.playerMove
+
+                &&
+
+                rounds[i-1].botMove ===
+                previous.botMove
+
+            ){
+
+                matches.push(
+                    rounds[i].botMove
+                );
+
+            }
+
+        }
+
+    }
+
+
+    if(matches.length<4)
+        return conditionalModel(index);
+
+
+    return probabilities(
+        countMoves(matches)
+    );
+
+}
+
+
+/* =========================================================
+   MODEL 5 — SEQUENCE PATTERN
+========================================================= */
+
+function sequenceModel(index){
+
+    if(index<3)
+        return markovModel(index);
+
+
+    const sequence =
+        rounds
+        .slice(index-3,index)
+        .map(r=>r.playerMove)
+        .join("");
+
+
+    const matches=[];
+
+
+    for(
+        let i=3;
+        i<index;
+        i++
+    ){
+
+        const previousSequence =
+            rounds
+            .slice(i-3,i)
+            .map(r=>r.playerMove)
+            .join("");
+
+
+        if(
+            previousSequence===
+            sequence
+        ){
+
+            matches.push(
+                rounds[i].botMove
+            );
+
+        }
+
+    }
+
+
+    if(matches.length<5)
+        return markovModel(index);
+
+
+    return probabilities(
+        countMoves(matches)
+    );
+
+}
+
+
+/* =========================================================
+   MODEL 6 — FEATURE BASED ML
+========================================================= */
+
+function featureForRound(
+    index
+){
+
+    const current =
+        rounds[index];
+
+    const previous =
+        index>0
+        ? rounds[index-1]
+        : null;
+
+
+    return {
+
+        player:
+            current.playerMove,
+
+        previousPlayer:
+            previous
+            ? previous.playerMove
+            : "N",
+
+        previousBot:
+            previous
+            ? previous.botMove
+            : "N",
+
+        previousResult:
+            previous
+            ? previous.result
+            : "N"
+
+    };
+
+}
+
+
+function featureKey(
+    feature
+){
+
+    return [
+
+        feature.player,
+
+        feature.previousPlayer,
+
+        feature.previousBot,
+
+        feature.previousResult
+
+    ].join("|");
+
+}
+
+
+function featureMLModel(index){
+
+    if(index<8)
+        return markovModel(index);
+
+
+    const target =
+        featureKey(
+            featureForRound(index)
+        );
+
+
+    const matches=[];
+
+
+    for(
+        let i=1;
+        i<index;
+        i++
+    ){
+
+        const feature =
+            featureForRound(i);
+
+
+        if(
+            featureKey(feature)===
+            target
+        ){
+
+            matches.push(
+                rounds[i].botMove
+            );
+
+        }
+
+    }
+
+
+    if(matches.length<4)
+        return markovModel(index);
+
+
+    return probabilities(
+        countMoves(matches)
+    );
+
+}
+
+
+/* =========================================================
+   MODEL LIST
+========================================================= */
+
+const MODELS = [
+
+    {
+        name:"Frequency",
+        fn:frequencyModel
+    },
+
+    {
+        name:"Conditional",
+        fn:conditionalModel
+    },
+
+    {
+        name:"Transition",
+        fn:transitionModel
+    },
+
+    {
+        name:"Markov",
+        fn:markovModel
+    },
+
+    {
+        name:"Sequence",
+        fn:sequenceModel
+    },
+
+    {
+        name:"Feature ML",
+        fn:featureMLModel
+    }
+
+];
+
+
+/* =========================================================
+   MODEL HISTORICAL ACCURACY
+========================================================= */
+
+function historicalModelAccuracy(
+    model,
+    index
+){
+
+    const start =
+        Math.max(
+            5,
+            index-300
+        );
+
+
+    let correct=0;
+    let total=0;
+
+
+    for(
+        let i=start;
+        i<index;
+        i++
+    ){
+
+        const prediction =
+            bestMove(
+                model.fn(i)
+            );
+
+
+        if(
+            prediction===
+            rounds[i].botMove
+        ){
+
+            correct++;
+
+        }
+
+        total++;
+
+    }
+
+
+    if(!total)
+        return 1/3;
+
+
+    return correct/total;
+
+}
+
+
+/* =========================================================
+   ENSEMBLE
+========================================================= */
+
+function ensemblePrediction(index){
+
+    if(index<=0){
+
+        return {
+
+            probabilities:{
+                R:1/3,
+                P:1/3,
+                S:1/3
+            },
+
+            weights:{}
+
+        };
+
+    }
+
+
+    const weighted = {
+
+        R:0,
+        P:0,
+        S:0
+
+    };
+
+
+    const weights={};
+
+    let totalWeight=0;
+
+
+    MODELS.forEach(model=>{
+
+        const accuracy =
+            historicalModelAccuracy(
+                model,
+                index
+            );
+
+
+        /*
+         * Small floor prevents one model
+         * from disappearing completely.
+         */
+
+        const weight =
+            Math.max(
+                0.05,
+                accuracy
+            );
+
+
+        weights[model.name]=
+            accuracy;
+
+
+        const p =
+            model.fn(index);
+
+
+        weighted.R +=
+            p.R * weight;
+
+        weighted.P +=
+            p.P * weight;
+
+        weighted.S +=
+            p.S * weight;
+
+
+        totalWeight +=
+            weight;
+
+    });
+
+
+    return {
+
+        probabilities:{
+
+            R:
+                weighted.R/
+                totalWeight,
+
+            P:
+                weighted.P/
+                totalWeight,
+
+            S:
+                weighted.S/
+                totalWeight
+
+        },
+
+        weights
+
+    };
+
+}
+
+
+/* =========================================================
+   CONFIDENCE
+========================================================= */
+
+function calculateConfidence(
+    probabilities,
+    sampleSize,
+    agreement
+){
+
+    const sorted =
+        Object.values(
+            probabilities
+        )
+        .sort(
+            (a,b)=>b-a
+        );
+
+
+    const gap =
+        sorted[0]-sorted[1];
+
+
+    let score =
+        Math.min(
+            1,
+            gap*2.5
+        );
+
+
+    score *=
+        Math.min(
+            1,
+            sampleSize/100
+        );
+
+
+    score =
+        score*.7+
+        agreement*.3;
+
+
+    if(score>=.75)
+        return "Very High";
+
+    if(score>=.55)
+        return "High";
+
+    if(score>=.35)
+        return "Medium";
+
+    if(score>=.15)
+        return "Low";
+
+    return "Very Low";
+
+}
+
+
+/* =========================================================
+   FULL PREDICTION
+========================================================= */
+
+function generatePrediction(index){
+
+    const ensemble =
+        ensemblePrediction(index);
+
+
+    const p =
+        ensemble.probabilities;
+
+
+    const predictedBot =
+        bestMove(p);
+
+
+    const recommendation =
+        counterMove(
+            predictedBot
+        );
+
+
+    let agreementCount=0;
+
+
+    MODELS.forEach(model=>{
+
+        if(
+            bestMove(
+                model.fn(index)
+            )===predictedBot
+        ){
+
+            agreementCount++;
+
+        }
+
+    });
+
+
+    const agreement =
+        agreementCount/
+        MODELS.length;
+
+
+    const confidence =
+        calculateConfidence(
+            p,
+            index,
+            agreement
+        );
+
+
+    return {
+
+        probabilities:p,
+
+        predictedBot,
+
+        recommendation,
+
+        confidence,
+
+        agreement,
+
+        weights:
+            ensemble.weights
+
+    };
+
+}
+
+
+/* =========================================================
+   PREDICTION UI
+========================================================= */
+
+function choosePredictionMove(
+    playerMove
+){
+
+    if(rounds.length<8){
+
+        alert(
+            "Collect at least 8 rounds before using prediction mode."
+        );
+
+        return;
+
+    }
+
+
+    const prediction =
+        generatePrediction(
+            rounds.length
+        );
+
+
+    pending={
+
+        mode:"prediction",
+
+        player:playerMove,
+
+        prediction:
+            prediction.predictedBot,
+
+        recommendation:
+            prediction.recommendation,
+
+        confidence:
+            prediction.confidence,
+
+        modelAgreement:
+            prediction.agreement,
+
+        modelWeights:
+            prediction.weights
+
+    };
+
+
+    document
+    .getElementById(
+        "predictionBefore"
+    )
+    .innerHTML = `
+
+        <div class="bigpred">
+
+            <div class="label">
+                BOT PREDICTION
+            </div>
+
+            ${probabilityHTML(
+                prediction.probabilities
+            )}
+
+            <h2>
+                Recommended:
+                ${moveDisplay(
+                    prediction.recommendation
+                )}
+            </h2>
+
+            <div class="pill">
+
+                ${prediction.confidence}
+                confidence
+
+                •
+
+                ${(prediction.agreement*100)
+                    .toFixed(0)}%
+                model agreement
+
+            </div>
+
+            <p class="muted">
+
+                You selected:
+                <b>
+                    ${moveDisplay(playerMove)}
+                </b>
+
+                <br>
+
+                Now reveal the bot's move.
+
+            </p>
+
+        </div>
+
+
+        <div
+            class="movegrid"
+            style="margin-top:10px">
+
+            ${["R","P","S"]
+            .map(bot=>`
+
+                <button
+                    class="move"
+                    onclick="
+                        finishPrediction('${bot}')
+                    ">
+
+                    ${moveDisplay(bot)}
+
+                </button>
+
+            `)
+            .join("")}
+
+        </div>
+
+    `;
+
+}
+
+
+function finishPrediction(
+    botMove
+){
+
+    if(!pending)
+        return;
+
+
+    const round={
+
+        id:randomId(),
+
+        timestamp:
+            new Date().toISOString(),
+
+        playerMove:
+            pending.player,
+
+        botMove,
+
+        result:
+            getResult(
+                pending.player,
+                botMove
+            ),
+
+        mode:
+            "prediction",
+
+        prediction:
+            pending.prediction,
+
+        recommendation:
+            pending.recommendation,
+
+        confidence:
+            pending.confidence,
+
+        modelAgreement:
+            pending.modelAgreement,
+
+        modelWeights:
+            pending.modelWeights
+
+    };
+
+
+    rounds.push(round);
+
+    pending=null;
+
+    saveData();
+
+
+    document
+    .getElementById(
+        "predictionBefore"
+    )
+    .style.display="none";
+
+
+    const result =
+        document.getElementById(
+            "predictionAfter"
+        );
+
+
+    result.style.display="block";
+
+
+    result.innerHTML = `
+
+        <div class="bigpred">
+
+            <div class="label">
+                RESULT
+            </div>
+
+            <div class="bigmove">
+
+                ${moveDisplay(
+                    round.playerMove
+                )}
+
+                →
+
+                ${moveDisplay(
+                    round.botMove
+                )}
+
+            </div>
+
+            <h2 class="${resultClass(round.result)}">
+
+                ${resultText(
+                    round.result
+                )}
+
+            </h2>
+
+
+            <p>
+
+                AI predicted:
+
+                <b>
+                    ${moveDisplay(
+                        round.prediction
+                    )}
+                </b>
+
+                ${
+                    round.prediction===
+                    round.botMove
+                    ? "✓ Correct"
+                    : "✗ Wrong"
+                }
+
+            </p>
+
+
+            <p>
+
+                Recommendation:
+
+                <b>
+                    ${moveDisplay(
+                        round.recommendation
+                    )}
+                </b>
+
+                ${
+                    round.recommendation===
+                    round.playerMove
+                    ? "✓ Followed"
+                    : "Not followed"
+                }
+
+            </p>
+
+
+            <button
+                class="btn primary"
+                onclick="resetPrediction()">
+
+                Next prediction
+
+            </button>
+
+        </div>
+
+    `;
+
+}
+
+
+function resetPrediction(){
+
+    document
+    .getElementById(
+        "predictionBefore"
+    )
+    .style.display="block";
+
+
+    document
+    .getElementById(
+        "predictionAfter"
+    )
+    .style.display="none";
+
+
+    createMoveButtons(
+        "predictionMoves",
+        "choosePredictionMove"
+    );
+
+}
+
+
+/* =========================================================
+   BLIND MODE
+========================================================= */
+
+function startBlind(){
+
+    if(rounds.length<8){
+
+        alert(
+            "Collect at least 8 rounds first."
+        );
+
+        return;
+
+    }
+
+
+    /*
+     * IMPORTANT:
+     * The player chooses the move before
+     * seeing the hidden prediction.
+     */
+
+    const player =
+        prompt(
+            "Enter your move: R, P or S"
+        );
+
+
+    if(!player)
+        return;
+
+
+    const normalized =
+        player.trim().toUpperCase();
+
+
+    if(!["R","P","S"].includes(
+        normalized
+    )){
+
+        alert(
+            "Use R, P or S."
+        );
+
+        return;
+
+    }
+
+
+    const prediction =
+        generatePrediction(
+            rounds.length
+        );
+
+
+    blindRound={
+
+        player:
+            normalized,
+
+        prediction
+
+    };
+
+
+    document
+    .getElementById(
+        "blindBox"
+    )
+    .innerHTML = `
+
+        <b>
+            Your move:
+            ${moveDisplay(normalized)}
+        </b>
+
+        <p class="muted">
+            AI prediction is hidden.
+            Now reveal the bot's move.
+        </p>
+
+        <div class="movegrid">
+
+            ${["R","P","S"]
+            .map(bot=>`
+
+                <button
+                    class="move"
+                    onclick="
+                        finishBlind('${bot}')
+                    ">
+
+                    ${moveDisplay(bot)}
+
+                </button>
+
+            `)
+            .join("")}
+
+        </div>
+
+    `;
+
+}
+
+
+function finishBlind(botMove){
+
+    if(!blindRound)
+        return;
+
+
+    const p =
+        blindRound.prediction;
+
+
+    const round={
+
+        id:randomId(),
+
+        timestamp:
+            new Date().toISOString(),
+
+        playerMove:
+            blindRound.player,
+
+        botMove,
+
+        result:
+            getResult(
+                blindRound.player,
+                botMove
+            ),
+
+        mode:"blind",
+
+        prediction:
+            p.predictedBot,
+
+        recommendation:
+            p.recommendation,
+
+        confidence:
+            p.confidence,
+
+        modelAgreement:
+            p.agreement,
+
+        modelWeights:
+            p.weights
+
+    };
+
+
+    rounds.push(round);
+
+    blindRound=null;
+
+    saveData();
+
+
+    document
+    .getElementById(
+        "blindBox"
+    )
+    .innerHTML = `
+
+        <b>Blind result</b>
+
+        <p>
+            ${moveDisplay(
+                round.playerMove
+            )}
+            →
+            ${moveDisplay(
+                round.botMove
+            )}
+        </p>
+
+        <p class="${resultClass(round.result)}">
+
+            ${resultText(
+                round.result
+            )}
+
+        </p>
+
+        <p>
+
+            Hidden AI prediction:
+
+            <b>
+                ${moveDisplay(
+                    round.prediction
+                )}
+            </b>
+
+            ${
+                round.prediction===
+                round.botMove
+                ? "✓ Correct"
+                : "✗ Wrong"
+            }
+
+        </p>
+
+        <p>
+
+            Hidden recommendation:
+
+            <b>
+                ${moveDisplay(
+                    round.recommendation
+                )}
+            </b>
+
+        </p>
+
+    `;
+
+}
+
+
+/* =========================================================
+   PROBABILITY UI
+========================================================= */
+
+function probabilityHTML(p){
+
+    return ["R","P","S"]
+    .map(move=>`
+
+        <div class="prob">
+
+            <div class="prob-head">
+
+                <span>
+                    ${moveDisplay(move)}
+                </span>
+
+                <b>
+                    ${(p[move]*100)
+                    .toFixed(1)}%
+                </b>
+
+            </div>
+
+            <div class="bar">
+
+                <i
+                    style="
+                        width:
+                        ${Math.max(
+                            1,
+                            p[move]*100
+                        )}%
+                    ">
+                </i>
+
+            </div>
+
+        </div>
+
+    `)
+    .join("");
+
+}
+
+
+/* =========================================================
+   ANALYSIS
+========================================================= */
+
+function updateAnalysis(){
+
+    const botMoves =
+        rounds.map(
+            r=>r.botMove
+        );
+
+
+    const counts =
+        countMoves(botMoves);
+
+
+    const total =
+        rounds.length || 1;
+
+
+    document
+    .getElementById("analysisR")
+    .textContent =
+        (counts.R/total*100)
+        .toFixed(1)+"%";
+
+
+    document
+    .getElementById("analysisP")
+    .textContent =
+        (counts.P/total*100)
+        .toFixed(1)+"%";
+
+
+    document
+    .getElementById("analysisS")
+    .textContent =
+        (counts.S/total*100)
+        .toFixed(1)+"%";
+
+
+    document
+    .getElementById("botChart")
+    .innerHTML =
+        chartHTML(
+            [counts.R,counts.P,counts.S],
+            ["R","P","S"]
+        );
+
+
+    const recent =
+        rounds.slice(-50);
+
+
+    const recentCounts =
+        countMoves(
+            recent.map(
+                r=>r.botMove
+            )
+        );
+
+
+    document
+    .getElementById("recentChart")
+    .innerHTML =
+        chartHTML(
+            [
+                recentCounts.R,
+                recentCounts.P,
+                recentCounts.S
+            ],
+            ["R","P","S"]
+        );
+
+
+    document
+    .getElementById(
+        "conditionalAnalysis"
+    )
+    .innerHTML =
+        conditionalTable();
+
+
+    document
+    .getElementById(
+        "transitionAnalysis"
+    )
+    .innerHTML =
+        transitionTable();
+
+
+    document
+    .getElementById(
+        "streakAnalysis"
+    )
+    .innerHTML =
+        streakAnalysis();
+
+
+    document
+    .getElementById(
+        "changeAnalysis"
+    )
+    .innerHTML =
+        changeAnalysis();
+
+
+    document
+    .getElementById(
+        "patternAnalysis"
+    )
+    .innerHTML =
+        patternAnalysis();
+
+}
+
+
+function chartHTML(
+    values,
+    labels
+){
+
+    const max =
+        Math.max(
+            1,
+            ...values
+        );
+
+
+    return values
+    .map(
+        (value,i)=>`
+
+            <div
+                class="column"
+                style="
+                    height:
+                    ${Math.max(
+                        5,
+                        value/max*85
+                    )}%
+                ">
+
+                <span>
+                    ${labels[i]}
+                    ${value}
+                </span>
+
+            </div>
+
+        `
+    )
+    .join("");
+
+}
+
+
+/* =========================================================
+   CONDITIONAL TABLE
+========================================================= */
+
+function conditionalTable(){
+
+    if(!rounds.length)
+        return "<p class='muted'>No data.</p>";
+
+
+    let html=`
+
+        <table>
+
+        <tr>
+
+            <th>
+                Your move
+            </th>
+
+            <th>
+                Bot R
+            </th>
+
+            <th>
+                Bot P
+            </th>
+
+            <th>
+                Bot S
+            </th>
+
+            <th>
+                Samples
+            </th>
+
+        </tr>
+
+    `;
+
+
+    ["R","P","S"]
+    .forEach(player=>{
+
+        const matches =
+            rounds.filter(
+                r =>
+                r.playerMove===player
+            );
+
+
+        const c =
+            countMoves(
+                matches.map(
+                    r=>r.botMove
+                )
+            );
+
+
+        const n =
+            matches.length || 1;
+
+
+        html += `
+
+            <tr>
+
+                <td>
+                    ${moveDisplay(player)}
+                </td>
+
+                <td>
+                    ${(c.R/n*100)
+                    .toFixed(1)}%
+                </td>
+
+                <td>
+                    ${(c.P/n*100)
+                    .toFixed(1)}%
+                </td>
+
+                <td>
+                    ${(c.S/n*100)
+                    .toFixed(1)}%
+                </td>
+
+                <td>
+                    ${matches.length}
+                </td>
+
+            </tr>
+
+        `;
+
+    });
+
+
+    html += "</table>";
+
+    return html;
+
+}
+
+
+/* =========================================================
+   TRANSITIONS
+========================================================= */
+
+function transitionTable(){
+
+    if(rounds.length<2)
+        return "<p class='muted'>Need at least 2 rounds.</p>";
+
+
+    let html=`
+
+        <table>
+
+        <tr>
+
+            <th>
+                Previous bot
+            </th>
+
+            <th>
+                Next R
+            </th>
+
+            <th>
+                Next P
+            </th>
+
+            <th>
+                Next S
+            </th>
+
+            <th>
+                Samples
+            </th>
+
+        </tr>
+
+    `;
+
+
+    ["R","P","S"]
+    .forEach(previous=>{
+
+        const next=[];
+
+
+        for(
+            let i=1;
+            i<rounds.length;
+            i++
+        ){
+
+            if(
+                rounds[i-1].botMove===
+                previous
+            ){
+
+                next.push(
+                    rounds[i].botMove
+                );
+
+            }
+
+        }
+
+
+        const c =
+            countMoves(next);
+
+
+        const n =
+            next.length || 1;
+
+
+        html += `
+
+            <tr>
+
+                <td>
+                    ${moveDisplay(previous)}
+                </td>
+
+                <td>
+                    ${(c.R/n*100)
+                    .toFixed(1)}%
+                </td>
+
+                <td>
+                    ${(c.P/n*100)
+                    .toFixed(1)}%
+                </td>
+
+                <td>
+                    ${(c.S/n*100)
+                    .toFixed(1)}%
+                </td>
+
+                <td>
+                    ${next.length}
+                </td>
+
+            </tr>
+
+        `;
+
+    });
+
+
+    return html+"</table>";
+
+}
+
+
+/* =========================================================
+   STREAK ANALYSIS
+========================================================= */
+
+function streakAnalysis(){
+
+    if(!rounds.length)
+        return "<p class='muted'>No data.</p>";
+
+
+    let longestBot=1;
+    let currentBot=1;
+
+
+    for(
+        let i=1;
+        i<rounds.length;
+        i++
+    ){
+
+        if(
+            rounds[i].botMove===
+            rounds[i-1].botMove
+        ){
+
+            currentBot++;
+
+            longestBot =
+                Math.max(
+                    longestBot,
+                    currentBot
+                );
+
+        }else{
+
+            currentBot=1;
+
+        }
+
+    }
+
+
+    let repeats=0;
+
+
+    for(
+        let i=1;
+        i<rounds.length;
+        i++
+    ){
+
+        if(
+            rounds[i].botMove===
+            rounds[i-1].botMove
+        ){
+
+            repeats++;
+
+        }
+
+    }
+
+
+    const wins =
+        rounds.filter(
+            r=>r.result==="W"
+        ).length;
+
+
+    const losses =
+        rounds.filter(
+            r=>r.result==="L"
+        ).length;
+
+
+    const draws =
+        rounds.filter(
+            r=>r.result==="D"
+        ).length;
+
+
+    return `
+
+        <p>
+            Longest bot repetition streak:
+            <b>${longestBot}</b>
+        </p>
+
+        <p>
+            Bot repeated previous move:
+            <b>
+                ${
+                    rounds.length>1
+                    ? (
+                        repeats/
+                        (rounds.length-1)*
+                        100
+                    ).toFixed(1)
+                    : "0.0"
+                }%
+            </b>
+        </p>
+
+        <p>
+            Player results:
+            <b>
+                ${wins} wins /
+                ${losses} losses /
+                ${draws} draws
+            </b>
+        </p>
+
+    `;
+
+}
+
+
+/* =========================================================
+   CHANGE DETECTION
+========================================================= */
+
+function changeAnalysis(){
+
+    if(rounds.length<100){
+
+        return `
+
+            <p class="muted">
+
+                At least 100 rounds are recommended
+                before attempting basic change detection.
+
+            </p>
+
+        `;
+
+    }
+
+
+    const previous =
+        rounds.slice(-100,-50);
+
+
+    const recent =
+        rounds.slice(-50);
+
+
+    const a =
+        probabilities(
+            countMoves(
+                previous.map(
+                    r=>r.botMove
+                )
+            ),
+            0
+        );
+
+
+    const b =
+        probabilities(
+            countMoves(
+                recent.map(
+                    r=>r.botMove
+                )
+            ),
+            0
+        );
+
+
+    const distance =
+        (
+            Math.abs(a.R-b.R)+
+            Math.abs(a.P-b.P)+
+            Math.abs(a.S-b.S)
+        )/2;
+
+
+    let interpretation =
+        "No strong distribution shift detected.";
+
+
+    if(distance>.20){
+
+        interpretation =
+            "Large recent distribution shift detected.";
+
+    }else if(distance>.10){
+
+        interpretation =
+            "Moderate distribution shift detected.";
+
+    }
+
+
+    return `
+
+        <p>
+            Previous 50 vs recent 50:
+            <b>
+                ${(distance*100)
+                .toFixed(1)}
+                percentage points
+            </b>
+        </p>
+
+        <p class="muted">
+            ${interpretation}
+        </p>
+
+        <p class="muted">
+            This is a screening signal, not proof
+            that the bot's algorithm changed.
+        </p>
+
+    `;
+
+}
+
+
+/* =========================================================
+   PATTERN DISCOVERY
+========================================================= */
+
+function patternAnalysis(){
+
+    if(rounds.length<20){
+
+        return `
+
+            <p class="muted">
+                Need more data before searching for
+                meaningful sequence patterns.
+            </p>
+
+        `;
+
+    }
+
+
+    const found=[];
+
+
+    for(
+        let length=1;
+        length<=5;
+        length++
+    ){
+
+        const map =
+            new Map();
+
+
+        for(
+            let i=length;
+            i<rounds.length;
+            i++
+        ){
+
+            const sequence =
+                rounds
+                .slice(
+                    i-length,
+                    i
+                )
+                .map(
+                    r=>r.playerMove
+                )
+                .join("");
+
+
+            if(!map.has(sequence))
+                map.set(
+                    sequence,
+                    []
+                );
+
+
+            map
+            .get(sequence)
+            .push(
+                rounds[i].botMove
+            );
+
+        }
+
+
+        map.forEach(
+            (values,sequence)=>{
+
+                if(values.length<8)
+                    return;
+
+
+                const p =
+                    probabilities(
+                        countMoves(values)
+                    );
+
+
+                const predicted =
+                    bestMove(p);
+
+
+                const strength =
+                    p[predicted]-
+                    1/3;
+
+
+                /*
+                 * Sample-adjusted score.
+                 */
+
+                const score =
+                    strength*
+                    Math.log(
+                        values.length+1
+                    );
+
+
+                found.push({
+
+                    sequence,
+
+                    samples:
+                        values.length,
+
+                    predicted,
+
+                    probability:
+                        p[predicted],
+
+                    strength,
+
+                    score
+
+                });
+
+            }
+        );
+
+    }
+
+
+    found.sort(
+        (a,b)=>
+            b.score-a.score
+    );
+
+
+    if(!found.length){
+
+        return `
+            <p class="muted">
+                No pattern has enough observations yet.
+            </p>
+        `;
+
+    }
+
+
+    return `
+
+        <table>
+
+            <tr>
+
+                <th>
+                    Player sequence
+                </th>
+
+                <th>
+                    Samples
+                </th>
+
+                <th>
+                    Bot prediction
+                </th>
+
+                <th>
+                    Probability
+                </th>
+
+                <th>
+                    Edge
+                </th>
+
+            </tr>
+
+            ${
+                found
+                .slice(0,20)
+                .map(pattern=>`
+
+                    <tr>
+
+                        <td>
+                            ${pattern.sequence}
+                        </td>
+
+                        <td>
+                            ${pattern.samples}
+                        </td>
+
+                        <td>
+                            ${moveDisplay(
+                                pattern.predicted
+                            )}
+                        </td>
+
+                        <td>
+                            ${
+                                (
+                                    pattern.probability*
+                                    100
+                                ).toFixed(1)
+                            }%
+                        </td>
+
+                        <td>
+                            ${
+                                (
+                                    pattern.strength*
+                                    100
+                                ).toFixed(1)
+                            }pp
+                        </td>
+
+                    </tr>
+
+                `)
+                .join("")
+            }
+
+        </table>
+
+    `;
+
+}
+
+
+/* =========================================================
+   MODEL PERFORMANCE
+========================================================= */
+
+function updateModelScores(){
+
+    const container =
+        document.getElementById(
+            "modelScores"
+        );
+
+
+    if(rounds.length<15){
+
+        container.innerHTML = `
+
+            <p class="muted">
+                Collect more rounds to evaluate
+                model performance.
+            </p>
+
+        `;
+
+        return;
+
+    }
+
+
+    const start =
+        Math.max(
+            8,
+            rounds.length-300
+        );
+
+
+    container.innerHTML =
+        MODELS
+        .map(model=>{
+
+            let correct=0;
+            let total=0;
+
+
+            for(
+                let i=start;
+                i<rounds.length;
+                i++
+            ){
+
+                const prediction =
+                    bestMove(
+                        model.fn(i)
+                    );
+
+
+                if(
+                    prediction===
+                    rounds[i].botMove
+                ){
+
+                    correct++;
+
+                }
+
+
+                total++;
+
+            }
+
+
+            const accuracy =
+                total
+                ? correct/total
+                : 0;
+
+
+            return `
+
+                <div class="model">
+
+                    <div class="model-line">
+
+                        <b>
+                            ${model.name}
+                        </b>
+
+                        <span>
+                            ${
+                                (
+                                    accuracy*
+                                    100
+                                ).toFixed(1)
+                            }%
+                        </span>
+
+                    </div>
+
+                    <div class="bar">
+
+                        <i
+                            style="
+                                width:
+                                ${
+                                    accuracy*
+                                    100
+                                }%
+                            ">
+                        </i>
+
+                    </div>
+
+                </div>
+
+            `;
+
+        })
+        .join("");
+
+}
+
+
+/* =========================================================
+   HISTORY
+========================================================= */
+
+function updateHistory(){
+
+    const body =
+        document.getElementById(
+            "historyBody"
+        );
+
+
+    if(!rounds.length){
+
+        body.innerHTML = `
+
+            <tr>
+
+                <td colspan="8">
+                    No rounds recorded yet.
+                </td>
+
+            </tr>
+
+        `;
+
+        return;
+
+    }
+
+
+    body.innerHTML =
+        rounds
+        .slice()
+        .reverse()
+        .map(
+            (round,index)=>`
+
+                <tr>
+
+                    <td>
+                        ${rounds.length-index}
+                    </td>
+
+                    <td>
+                        ${moveDisplay(
+                            round.playerMove
+                        )}
+                    </td>
+
+                    <td>
+                        ${moveDisplay(
+                            round.botMove
+                        )}
+                    </td>
+
+                    <td
+                        class="${resultClass(
+                            round.result
+                        )}">
+
+                        ${resultText(
+                            round.result
+                        )}
+
+                    </td>
+
+                    <td>
+
+                        ${
+                            round.prediction
+                            ? moveDisplay(
+                                round.prediction
+                              )
+                            : "—"
+                        }
+
+                    </td>
+
+                    <td>
+
+                        ${
+                            round.recommendation
+                            ? moveDisplay(
+                                round.recommendation
+                              )
+                            : "—"
+                        }
+
+                    </td>
+
+                    <td>
+                        ${
+                            round.confidence ||
+                            "—"
+                        }
+                    </td>
+
+                    <td>
+                        ${
+                            round.mode ||
+                            "collection"
+                        }
+                    </td>
+
+                </tr>
+
+            `
+        )
+        .join("");
+
+}
+
+
+/* =========================================================
+   HOME STATS
+========================================================= */
+
+function updateHome(){
+
+    document
+    .getElementById(
+        "homeRounds"
+    )
+    .textContent =
+        rounds.length;
+
+
+    const predictionRounds =
+        rounds.filter(
+            r=>r.prediction
+        );
+
+
+    if(predictionRounds.length){
+
+        const correct =
+            predictionRounds.filter(
+                r=>
+                r.prediction===
+                r.botMove
+            ).length;
+
+
+        document
+        .getElementById(
+            "homeAccuracy"
+        )
+        .textContent =
+            (
+                correct/
+                predictionRounds.length*
+                100
+            ).toFixed(1)+"%";
+
+    }else{
+
+        document
+        .getElementById(
+            "homeAccuracy"
+        )
+        .textContent="—";
+
+    }
+
+
+    const recommendations =
+        rounds.filter(
+            r=>r.recommendation
+        );
+
+
+    if(recommendations.length){
+
+        const wins =
+            recommendations.filter(
+                r=>
+                r.recommendation===
+                r.playerMove &&
+                r.result==="W"
+            ).length;
+
+
+        document
+        .getElementById(
+            "homeWinRate"
+        )
+        .textContent =
+            (
+                wins/
+                recommendations.length*
+                100
+            ).toFixed(1)+"%";
+
+    }else{
+
+        document
+        .getElementById(
+            "homeWinRate"
+        )
+        .textContent="—";
+
+    }
+
+
+    document
+    .getElementById(
+        "roundBadge"
+    )
+    .textContent =
+        rounds.length+
+        " rounds";
+
+}
+
+
+/* =========================================================
+   EXPORT JSON
+========================================================= */
+
+function downloadFile(
+    filename,
+    content,
+    type
+){
+
+    const blob =
+        new Blob(
+            [content],
+            {type}
+        );
+
+
+    const url =
+        URL.createObjectURL(
+            blob
+        );
+
+
+    const link =
+        document.createElement(
+            "a"
+        );
+
+
+    link.href=url;
+
+    link.download=filename;
+
+    link.click();
+
+
+    setTimeout(
+        ()=>URL.revokeObjectURL(url),
+        1000
+    );
+
+}
+
+
+function exportJSON(){
+
+    downloadFile(
+
+        "rps-ai-lab.json",
+
+        JSON.stringify(
+            rounds,
+            null,
+            2
+        ),
+
+        "application/json"
+
+    );
+
+}
+
+
+/* =========================================================
+   EXPORT CSV
+========================================================= */
+
+function csvEscape(value){
+
+    return '"' +
+        String(
+            value ?? ""
+        )
+        .replace(
+            /"/g,
+            '""'
+        )+
+        '"';
+
+}
+
+
+function exportCSV(){
+
+    const columns=[
+
+        "id",
+        "timestamp",
+        "playerMove",
+        "botMove",
+        "result",
+        "mode",
+        "prediction",
+        "recommendation",
+        "confidence",
+        "modelAgreement"
+
+    ];
+
+
+    const lines=[
+
+        columns.join(",")
+
+    ];
+
+
+    rounds.forEach(round=>{
+
+        lines.push(
+
+            columns
+            .map(
+                column =>
+                csvEscape(
+                    round[column]
+                )
+            )
+            .join(",")
+
+        );
+
+    });
+
+
+    downloadFile(
+
+        "rps-ai-lab.csv",
+
+        lines.join("\n"),
+
+        "text/csv"
+
+    );
+
+}
+
+
+/* =========================================================
+   IMPORT
+========================================================= */
+
+function importFile(){
+
+    const input =
+        document.getElementById(
+            "importFile"
+        );
+
+
+    const file =
+        input.files[0];
+
+
+    if(!file){
+
+        alert(
+            "Select a JSON or CSV file first."
+        );
+
+        return;
+
+    }
+
+
+    const reader =
+        new FileReader();
+
+
+    reader.onload=function(){
+
+        try{
+
+            let imported=[];
+
+
+            if(
+                file.name
+                .toLowerCase()
+                .endsWith(".json")
+            ){
+
+                imported =
+                    JSON.parse(
+                        reader.result
+                    );
+
+            }else{
+
+                imported =
+                    parseCSV(
+                        reader.result
+                    );
+
+            }
+
+
+            if(!Array.isArray(
+                imported
+            )){
+
+                throw new Error(
+                    "Invalid dataset."
+                );
+
+            }
+
+
+            const existing =
+                new Set(
+                    rounds.map(
+                        r=>r.id
+                    )
+                );
+
+
+            let added=0;
+
+
+            imported.forEach(item=>{
+
+                if(
+                    !existing.has(
+                        item.id
+                    ) &&
+
+                    ["R","P","S"]
+                    .includes(
+                        item.playerMove
+                    ) &&
+
+                    ["R","P","S"]
+                    .includes(
+                        item.botMove
+                    )
+                ){
+
+                    rounds.push({
+
+                        ...item,
+
+                        result:
+                            item.result ||
+                            getResult(
+                                item.playerMove,
+                                item.botMove
+                            )
+
+                    });
+
+
+                    existing.add(
+                        item.id
+                    );
+
+
+                    added++;
+
+                }
+
+            });
+
+
+            rounds.sort(
+                (a,b)=>
+                new Date(
+                    a.timestamp || 0
+                ) -
+                new Date(
+                    b.timestamp || 0
+                )
+            );
+
+
+            saveData();
+
+
+            alert(
+                "Imported "+
+                added+
+                " new rounds."
+            );
+
+
+        }catch(error){
+
+            alert(
+                "Import failed: "+
+                error.message
+            );
+
+        }
+
+    };
+
+
+    reader.readAsText(file);
+
+}
+
+
+function parseCSV(text){
+
+    const lines =
+        text
+        .trim()
+        .split(/\r?\n/);
+
+
+    if(lines.length<2)
+        return [];
+
+
+    const headers =
+        parseCSVLine(
+            lines[0]
+        );
+
+
+    return lines
+    .slice(1)
+    .map(line=>{
+
+        const values =
+            parseCSVLine(
+                line
+            );
+
+
+        const object={};
+
+
+        headers.forEach(
+            (header,index)=>{
+
+                object[header]=
+                    values[index] ||
+                    "";
+
+            }
+        );
+
+
+        return object;
+
+    });
+
+}
+
+
+function parseCSVLine(line){
+
+    const result=[];
+    let current="";
+    let quoted=false;
+
+
+    for(
+        let i=0;
+        i<line.length;
+        i++
+    ){
+
+        const char=line[i];
+
+
+        if(char==='"'){
+
+            if(
+                quoted &&
+                line[i+1]==='"'
+            ){
+
+                current+='"';
+                i++;
+
+            }else{
+
+                quoted=!quoted;
+
+            }
+
+        }else if(
+            char==="," &&
+            !quoted
+        ){
+
+            result.push(
+                current
+            );
+
+            current="";
+
+        }else{
+
+            current+=char;
+
+        }
+
+    }
+
+
+    result.push(current);
+
+    return result;
+
+}
+
+
+/* =========================================================
+   CLEAR DATA
+========================================================= */
+
+function clearData(){
+
+    const confirmed =
+        confirm(
+            "Delete ALL recorded RPS data? This cannot be undone unless you exported a backup."
+        );
+
+
+    if(!confirmed)
+        return;
+
+
+    rounds=[];
+
+    pending=null;
+
+    blindRound=null;
+
+    localStorage.removeItem(
+        STORAGE_KEY
+    );
+
+
+    refreshEverything();
+
+}
+
+
+/* =========================================================
+   GLOBAL REFRESH
+========================================================= */
+
+function refreshEverything(){
+
+    updateHome();
+
+    updateAnalysis();
+
+    updateModelScores();
+
+    updateHistory();
+
+}
+
+
+/* =========================================================
+   START
+========================================================= */
+
+refreshEverything();
+
+</script>
+
+</body>
+</html>
