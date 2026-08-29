@@ -1,24 +1,54 @@
 "use strict";
 
+/*
+====================================================================
+VAULT ENERGY TRACKER
+====================================================================
 
-/* =====================================================================
-   VAULT ENERGY TRACKER
-   Application controller
-   ===================================================================== */
+Purpose:
+
+This application DOES NOT simulate the game.
+
+The game itself decides:
+    - how much energy remains
+    - how much energy a vault consumes
+    - the actual money received
+
+This tracker only:
+
+    1. Tracks energy regeneration.
+    2. Tells you when the energy should be full.
+    3. Lets you record a vault check.
+    4. Records balance before / after.
+    5. Calculates actual earnings.
+    6. Calculates overdue time.
+    7. Asks you for the NEW energy shown by the game.
+    8. Starts the next tracking cycle.
+    9. Stores everything locally.
+   10. Provides analytics and history.
+
+====================================================================
+*/
 
 
-/* =====================================================================
+/* =================================================================
    CONSTANTS
-   ===================================================================== */
+   ================================================================= */
 
 const STORAGE_KEY = "vaultEnergyTracker";
 
-const APP_VERSION = 3;
+const APP_VERSION = 5;
 
 const DEFAULT_CONFIG = {
     maxEnergy: 250,
     secPerEnergy: 30,
-    vaultEnergyCost: 20,
+
+    /*
+     * These reward values are informational only.
+     * Actual earnings always come from:
+     *
+     * balanceAfter - balanceBefore
+     */
     minReward: 9000,
     maxReward: 16000
 };
@@ -29,13 +59,24 @@ const TEST_CONFIG = {
 };
 
 
-/* =====================================================================
+/* =================================================================
+   CONFIGURATION
+   ================================================================= */
+
+let config = {
+    ...DEFAULT_CONFIG
+};
+
+
+/* =================================================================
    APPLICATION STATE
-   ===================================================================== */
+   ================================================================= */
 
 const state = {
 
-    /* Current energy system */
+    /* -------------------------------------------------------------
+       Current tracking cycle
+       ------------------------------------------------------------- */
 
     currentEnergy: 0,
 
@@ -48,19 +89,32 @@ const state = {
     waitingForCheck: false,
 
 
-    /* History */
+    /*
+     * After a vault is recorded, we wait for the user
+     * to tell us the new energy shown by the game.
+     */
+    waitingForNewEnergy: false,
+
+
+    /* -------------------------------------------------------------
+       History
+       ------------------------------------------------------------- */
 
     history: [],
 
 
-    /* Settings / runtime */
+    /* -------------------------------------------------------------
+       Settings
+       ------------------------------------------------------------- */
 
     testMode: false,
 
     notificationsEnabled: false,
 
 
-    /* UI */
+    /* -------------------------------------------------------------
+       UI
+       ------------------------------------------------------------- */
 
     currentPage: "dashboard",
 
@@ -73,48 +127,38 @@ const state = {
     historySearch: "",
 
 
-    /* Modal */
-
-    currentModal: null,
-
-    pendingConfirmationAction: null,
-
-
-    /* Internal runtime flags */
+    /* -------------------------------------------------------------
+       Runtime
+       ------------------------------------------------------------- */
 
     notificationShownForCycle: false,
 
-    initialized: false
+    currentModal: null,
+
+    pendingConfirmationAction: null
 };
 
 
-/* =====================================================================
-   CONFIGURATION
-   ===================================================================== */
-
-let config = {
-    ...DEFAULT_CONFIG
-};
-
-
-/* =====================================================================
+/* =================================================================
    DOM HELPERS
-   ===================================================================== */
+   ================================================================= */
 
-const $ = (selector) =>
+const $ = selector =>
     document.querySelector(selector);
 
-const $$ = (selector) =>
+const $$ = selector =>
     [...document.querySelectorAll(selector)];
 
 
-/* =====================================================================
+/* =================================================================
    DOM REFERENCES
-   ===================================================================== */
+   ================================================================= */
 
 const dom = {
 
-    /* Navigation */
+    /* -------------------------------------------------------------
+       Navigation
+       ------------------------------------------------------------- */
 
     navButtons:
         $$(".nav-button"),
@@ -123,13 +167,17 @@ const dom = {
         $$("[data-page-content]"),
 
 
-    /* Header */
+    /* -------------------------------------------------------------
+       Header
+       ------------------------------------------------------------- */
 
     settingsButton:
         $("#settingsButton"),
 
 
-    /* Dashboard */
+    /* -------------------------------------------------------------
+       Dashboard
+       ------------------------------------------------------------- */
 
     dashboardCurrentEnergy:
         $("#dashboardCurrentEnergy"),
@@ -233,14 +281,13 @@ const dom = {
     vaultsPossible:
         $("#vaultsPossible"),
 
-    trackerCard:
-        $("#trackerCard"),
-
     energyCard:
         document.querySelector(".energy-card"),
 
 
-    /* Analytics */
+    /* -------------------------------------------------------------
+       Analytics
+       ------------------------------------------------------------- */
 
     periodButtons:
         $$(".period-button"),
@@ -303,7 +350,9 @@ const dom = {
         $("#vaultCapacityEfficiencyBar"),
 
 
-    /* History */
+    /* -------------------------------------------------------------
+       History
+       ------------------------------------------------------------- */
 
     historyDateFilter:
         $("#historyDateFilter"),
@@ -330,10 +379,9 @@ const dom = {
         $("#historyList"),
 
 
-    /* Settings */
-
-    settingsPanel:
-        $("#page-settings"),
+    /* -------------------------------------------------------------
+       Settings
+       ------------------------------------------------------------- */
 
     settingMaxEnergy:
         $("#settingMaxEnergy"),
@@ -375,7 +423,9 @@ const dom = {
         $("#resetApplicationButton"),
 
 
-    /* Check result modal */
+    /* -------------------------------------------------------------
+       Check result modal
+       ------------------------------------------------------------- */
 
     checkResultModal:
         $("#checkResultModal"),
@@ -408,7 +458,9 @@ const dom = {
         $("#saveCheckResultButton"),
 
 
-    /* Confirmation modal */
+    /* -------------------------------------------------------------
+       Confirmation modal
+       ------------------------------------------------------------- */
 
     confirmationModal:
         $("#confirmationModal"),
@@ -424,12 +476,16 @@ const dom = {
 };
 
 
-/* =====================================================================
-   GENERAL UTILITIES
-   ===================================================================== */
+/* =================================================================
+   BASIC UTILITIES
+   ================================================================= */
+
+function now() {
+    return Date.now();
+}
+
 
 function clamp(value, min, max) {
-
     return Math.max(
         min,
         Math.min(max, value)
@@ -438,7 +494,6 @@ function clamp(value, min, max) {
 
 
 function isFiniteNumber(value) {
-
     return (
         typeof value === "number" &&
         Number.isFinite(value)
@@ -447,21 +502,64 @@ function isFiniteNumber(value) {
 
 
 function pad(value) {
+    return String(value).padStart(2, "0");
+}
+
+
+function sum(array, selector) {
+
+    return array.reduce(
+        (total, item) =>
+            total +
+            (
+                Number(
+                    selector(item)
+                ) || 0
+            ),
+        0
+    );
+}
+
+
+function escapeHtml(value) {
 
     return String(value)
-        .padStart(2, "0");
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
 }
 
 
-function now() {
+function randomId() {
 
-    return Date.now();
+    if (
+        globalThis.crypto &&
+        typeof crypto.randomUUID ===
+            "function"
+    ) {
+        return crypto.randomUUID();
+    }
+
+    return (
+        Date.now().toString(36) +
+        "-" +
+        Math.random()
+            .toString(36)
+            .slice(2)
+    );
 }
 
+
+/* =================================================================
+   FORMATTERS
+   ================================================================= */
 
 function formatMoney(value) {
 
-    const number = Number(value);
+    const number =
+        Number(value);
 
     if (!Number.isFinite(number)) {
         return "$0";
@@ -480,34 +578,25 @@ function formatMoney(value) {
 
 function formatSignedMoney(value) {
 
-    const number = Number(value);
+    const number =
+        Number(value);
 
     if (!Number.isFinite(number)) {
         return "$0";
     }
 
-    const absolute =
-        Math.abs(number);
+    if (number === 0) {
+        return "$0";
+    }
 
     const formatted =
-        new Intl.NumberFormat(
-            undefined,
-            {
-                style: "currency",
-                currency: "USD",
-                maximumFractionDigits: 2
-            }
-        ).format(absolute);
+        formatMoney(
+            Math.abs(number)
+        );
 
-    if (number > 0) {
-        return `+${formatted}`;
-    }
-
-    if (number < 0) {
-        return `-${formatted}`;
-    }
-
-    return "$0";
+    return number > 0
+        ? `+${formatted}`
+        : `-${formatted}`;
 }
 
 
@@ -520,12 +609,13 @@ function formatDuration(totalSeconds) {
         return "--:--:--";
     }
 
-
     const seconds =
         Math.floor(totalSeconds);
 
     const hours =
-        Math.floor(seconds / 3600);
+        Math.floor(
+            seconds / 3600
+        );
 
     const minutes =
         Math.floor(
@@ -534,7 +624,6 @@ function formatDuration(totalSeconds) {
 
     const remainingSeconds =
         seconds % 60;
-
 
     return (
         `${pad(hours)}:` +
@@ -544,7 +633,9 @@ function formatDuration(totalSeconds) {
 }
 
 
-function formatHumanDuration(totalSeconds) {
+function formatHumanDuration(
+    totalSeconds
+) {
 
     if (
         !Number.isFinite(totalSeconds) ||
@@ -553,25 +644,24 @@ function formatHumanDuration(totalSeconds) {
         return "0s";
     }
 
-
-    const seconds =
+    let seconds =
         Math.round(totalSeconds);
 
-
     const hours =
-        Math.floor(seconds / 3600);
+        Math.floor(
+            seconds / 3600
+        );
+
+    seconds %= 3600;
 
     const minutes =
         Math.floor(
-            (seconds % 3600) / 60
+            seconds / 60
         );
 
-    const remainingSeconds =
-        seconds % 60;
-
+    seconds %= 60;
 
     const parts = [];
-
 
     if (hours > 0) {
         parts.push(`${hours}h`);
@@ -582,14 +672,15 @@ function formatHumanDuration(totalSeconds) {
     }
 
     if (
-        remainingSeconds > 0 &&
+        seconds > 0 &&
         hours === 0
     ) {
-        parts.push(`${remainingSeconds}s`);
+        parts.push(`${seconds}s`);
     }
 
-
-    return parts.join(" ");
+    return parts.length
+        ? parts.join(" ")
+        : "0s";
 }
 
 
@@ -610,7 +701,9 @@ function formatTime(timestamp) {
 }
 
 
-function formatTimeWithSeconds(timestamp) {
+function formatTimeWithSeconds(
+    timestamp
+) {
 
     if (!timestamp) {
         return "—";
@@ -665,7 +758,13 @@ function formatDateLong(timestamp) {
 }
 
 
-function getStartOfDay(timestamp = now()) {
+/* =================================================================
+   DATE HELPERS
+   ================================================================= */
+
+function getStartOfDay(
+    timestamp = now()
+) {
 
     const date =
         new Date(timestamp);
@@ -681,7 +780,9 @@ function getStartOfDay(timestamp = now()) {
 }
 
 
-function getDaysAgoStart(days) {
+function getDaysAgoStart(
+    days
+) {
 
     const date =
         new Date();
@@ -694,114 +795,17 @@ function getDaysAgoStart(days) {
     );
 
     date.setDate(
-        date.getDate() - days
+        date.getDate() -
+        days
     );
 
     return date.getTime();
 }
 
 
-function escapeHtml(value) {
-
-    return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-}
-
-
-/* =====================================================================
-   CALCULATIONS
-   ===================================================================== */
-
-function getFullRechargeSeconds() {
-
-    return (
-        config.maxEnergy *
-        config.secPerEnergy
-    );
-}
-
-
-function getRemainingEnergy() {
-
-    return Math.max(
-        0,
-        config.maxEnergy -
-        state.currentEnergy
-    );
-}
-
-
-function getPossibleVaults(energy = config.maxEnergy) {
-
-    if (
-        !Number.isFinite(
-            config.vaultEnergyCost
-        ) ||
-        config.vaultEnergyCost <= 0
-    ) {
-        return 0;
-    }
-
-    return Math.floor(
-        energy /
-        config.vaultEnergyCost
-    );
-}
-
-
-function getCurrentRechargeEnergy() {
-
-    if (
-        state.fullAt === null ||
-        state.trackingStartedAt === null
-    ) {
-        return state.currentEnergy;
-    }
-
-
-    if (state.waitingForCheck) {
-        return config.maxEnergy;
-    }
-
-
-    if (now() >= state.fullAt) {
-        return config.maxEnergy;
-    }
-
-
-    const elapsedSeconds =
-        Math.max(
-            0,
-            (
-                now() -
-                state.trackingStartedAt
-            ) / 1000
-        );
-
-
-    const gained =
-        Math.floor(
-            elapsedSeconds /
-            config.secPerEnergy
-        );
-
-
-    return clamp(
-        state.startingEnergy +
-        gained,
-        0,
-        config.maxEnergy
-    );
-}
-
-
-/* =====================================================================
-   STATE PERSISTENCE
-   ===================================================================== */
+/* =================================================================
+   STORAGE
+   ================================================================= */
 
 function saveState() {
 
@@ -813,7 +817,9 @@ function saveState() {
                 APP_VERSION,
 
             config:
-                { ...config },
+                {
+                    ...config
+                },
 
             state: {
 
@@ -832,6 +838,9 @@ function saveState() {
                 waitingForCheck:
                     state.waitingForCheck,
 
+                waitingForNewEnergy:
+                    state.waitingForNewEnergy,
+
                 history:
                     state.history,
 
@@ -839,10 +848,20 @@ function saveState() {
                     state.testMode,
 
                 notificationsEnabled:
-                    state.notificationsEnabled
+                    state.notificationsEnabled,
 
+                currentPage:
+                    state.currentPage,
+
+                analyticsPeriod:
+                    state.analyticsPeriod,
+
+                historyDateFilter:
+                    state.historyDateFilter,
+
+                historyStatusFilter:
+                    state.historyStatusFilter
             }
-
         };
 
 
@@ -880,11 +899,13 @@ function loadState() {
             JSON.parse(raw);
 
 
-        /* -------------------------------------------------------------
-           Configuration
-           ------------------------------------------------------------- */
+        /* ---------------------------------------------------------
+           Config
+           --------------------------------------------------------- */
 
-        if (payload.config) {
+        if (
+            payload.config
+        ) {
 
             config.maxEnergy =
                 sanitizeInteger(
@@ -894,6 +915,7 @@ function loadState() {
                     9999
                 );
 
+
             config.secPerEnergy =
                 sanitizeInteger(
                     payload.config.secPerEnergy,
@@ -902,13 +924,6 @@ function loadState() {
                     9999
                 );
 
-            config.vaultEnergyCost =
-                sanitizeInteger(
-                    payload.config.vaultEnergyCost,
-                    DEFAULT_CONFIG.vaultEnergyCost,
-                    1,
-                    9999
-                );
 
             config.minReward =
                 sanitizeNumber(
@@ -916,6 +931,7 @@ function loadState() {
                     DEFAULT_CONFIG.minReward,
                     0
                 );
+
 
             config.maxReward =
                 sanitizeNumber(
@@ -926,35 +942,27 @@ function loadState() {
         }
 
 
-        /* -------------------------------------------------------------
+        /* ---------------------------------------------------------
            State
-           ------------------------------------------------------------- */
+           --------------------------------------------------------- */
 
         const saved =
             payload.state || {};
 
 
         state.currentEnergy =
-            clamp(
-                sanitizeInteger(
-                    saved.currentEnergy,
-                    0,
-                    0,
-                    config.maxEnergy
-                ),
+            sanitizeInteger(
+                saved.currentEnergy,
+                0,
                 0,
                 config.maxEnergy
             );
 
 
         state.startingEnergy =
-            clamp(
-                sanitizeInteger(
-                    saved.startingEnergy,
-                    state.currentEnergy,
-                    0,
-                    config.maxEnergy
-                ),
+            sanitizeInteger(
+                saved.startingEnergy,
+                state.currentEnergy,
                 0,
                 config.maxEnergy
             );
@@ -982,6 +990,12 @@ function loadState() {
             );
 
 
+        state.waitingForNewEnergy =
+            Boolean(
+                saved.waitingForNewEnergy
+            );
+
+
         state.history =
             Array.isArray(
                 saved.history
@@ -1004,12 +1018,64 @@ function loadState() {
             );
 
 
+        state.currentPage =
+            [
+                "dashboard",
+                "analytics",
+                "history",
+                "settings"
+            ].includes(
+                saved.currentPage
+            )
+                ? saved.currentPage
+                : "dashboard";
+
+
+        state.analyticsPeriod =
+            [
+                "today",
+                "7days",
+                "30days",
+                "all"
+            ].includes(
+                saved.analyticsPeriod
+            )
+                ? saved.analyticsPeriod
+                : "today";
+
+
+        state.historyDateFilter =
+            [
+                "all",
+                "today",
+                "yesterday",
+                "7days",
+                "30days"
+            ].includes(
+                saved.historyDateFilter
+            )
+                ? saved.historyDateFilter
+                : "all";
+
+
+        state.historyStatusFilter =
+            [
+                "all",
+                "ontime",
+                "overdue"
+            ].includes(
+                saved.historyStatusFilter
+            )
+                ? saved.historyStatusFilter
+                : "all";
+
+
         return true;
 
     } catch (error) {
 
         console.error(
-            "Failed to load state:",
+            "Could not load tracker state:",
             error
         );
 
@@ -1028,11 +1094,9 @@ function sanitizeInteger(
     const number =
         Number(value);
 
-
     if (!Number.isFinite(number)) {
         return fallback;
     }
-
 
     return clamp(
         Math.floor(number),
@@ -1051,11 +1115,9 @@ function sanitizeNumber(
     const number =
         Number(value);
 
-
     if (!Number.isFinite(number)) {
         return fallback;
     }
-
 
     return Math.max(
         min,
@@ -1064,7 +1126,9 @@ function sanitizeNumber(
 }
 
 
-function normalizeHistory(history) {
+function normalizeHistory(
+    history
+) {
 
     return history
 
@@ -1080,13 +1144,13 @@ function normalizeHistory(history) {
 
         .map(record => {
 
-            const balanceBefore =
+            const before =
                 Number(
                     record.balanceBefore
                 );
 
 
-            const balanceAfter =
+            const after =
                 Number(
                     record.balanceAfter
                 );
@@ -1107,14 +1171,13 @@ function normalizeHistory(history) {
                 earnings =
                     (
                         Number.isFinite(
-                            balanceBefore
+                            before
                         ) &&
                         Number.isFinite(
-                            balanceAfter
+                            after
                         )
                     )
-                        ? balanceAfter -
-                          balanceBefore
+                        ? after - before
                         : 0;
             }
 
@@ -1122,14 +1185,18 @@ function normalizeHistory(history) {
             return {
 
                 id:
-                    record.id ??
-                    cryptoRandomId(),
+                    record.id ||
+                    randomId(),
 
                 fullAt:
-                    record.fullAt,
+                    Number(
+                        record.fullAt
+                    ),
 
                 checkedAt:
-                    record.checkedAt,
+                    Number(
+                        record.checkedAt
+                    ),
 
                 overdueSeconds:
                     Math.max(
@@ -1141,19 +1208,24 @@ function normalizeHistory(history) {
 
                 balanceBefore:
                     Number.isFinite(
-                        balanceBefore
+                        before
                     )
-                        ? balanceBefore
+                        ? before
                         : 0,
 
                 balanceAfter:
                     Number.isFinite(
-                        balanceAfter
+                        after
                     )
-                        ? balanceAfter
+                        ? after
                         : 0,
 
                 earnings,
+
+                /*
+                 * The energy values are observations,
+                 * not simulated values.
+                 */
 
                 energyAtStart:
                     Number.isFinite(
@@ -1162,49 +1234,41 @@ function normalizeHistory(history) {
                         ? record.energyAtStart
                         : null,
 
-                energyCost:
+                energyAfterVault:
                     Number.isFinite(
-                        record.energyCost
+                        record.energyAfterVault
                     )
-                        ? record.energyCost
-                        : config.vaultEnergyCost
+                        ? record.energyAfterVault
+                        : null
             };
         });
 }
 
 
-function cryptoRandomId() {
-
-    if (
-        globalThis.crypto &&
-        typeof crypto.randomUUID ===
-            "function"
-    ) {
-        return crypto.randomUUID();
-    }
-
-
-    return (
-        Date.now()
-            .toString(36) +
-        "-" +
-        Math.random()
-            .toString(36)
-            .slice(2)
-    );
-}
-
-
-/* =====================================================================
-   CORE ENERGY STATE
-   ===================================================================== */
+/* =================================================================
+   ENERGY TRACKING
+   ================================================================= */
 
 function recomputeState() {
+
+    /*
+     * Nothing to calculate when we're waiting for
+     * the user to enter the new energy after a vault.
+     */
+
+    if (
+        state.waitingForNewEnergy
+    ) {
+
+        return;
+    }
+
 
     if (
         state.fullAt === null ||
         state.trackingStartedAt === null
     ) {
+
         return;
     }
 
@@ -1213,8 +1277,13 @@ function recomputeState() {
         now();
 
 
+    /* -------------------------------------------------------------
+       Full
+       ------------------------------------------------------------- */
+
     if (
-        currentTime >= state.fullAt
+        currentTime >=
+        state.fullAt
     ) {
 
         state.currentEnergy =
@@ -1227,19 +1296,54 @@ function recomputeState() {
     }
 
 
+    /* -------------------------------------------------------------
+       Recharging
+       ------------------------------------------------------------- */
+
+    const elapsedSeconds =
+        Math.max(
+            0,
+            (
+                currentTime -
+                state.trackingStartedAt
+            ) / 1000
+        );
+
+
+    const energyGained =
+        Math.floor(
+            elapsedSeconds /
+            config.secPerEnergy
+        );
+
+
     state.currentEnergy =
-        getCurrentRechargeEnergy();
+        clamp(
+            state.startingEnergy +
+            energyGained,
+            0,
+            config.maxEnergy
+        );
+
 
     state.waitingForCheck =
         false;
 }
 
 
-function startTracking(energy) {
+/* =================================================================
+   START A NEW TRACKING CYCLE
+   ================================================================= */
+
+function startTracking(
+    energy
+) {
 
     const safeEnergy =
         clamp(
-            Math.floor(energy),
+            Math.floor(
+                Number(energy)
+            ),
             0,
             config.maxEnergy
         );
@@ -1252,80 +1356,39 @@ function startTracking(energy) {
     state.currentEnergy =
         safeEnergy;
 
+
     state.startingEnergy =
         safeEnergy;
 
+
     state.trackingStartedAt =
         currentTime;
 
 
+    const remainingEnergy =
+        config.maxEnergy -
+        safeEnergy;
+
+
+    const secondsNeeded =
+        remainingEnergy *
+        config.secPerEnergy;
+
+
     state.fullAt =
         currentTime +
-        (
-            (
-                config.maxEnergy -
-                safeEnergy
-            ) *
-            config.secPerEnergy *
-            1000
-        );
+        secondsNeeded *
+        1000;
 
 
-    if (
-        safeEnergy >=
-        config.maxEnergy
-    ) {
-
-        state.currentEnergy =
-            config.maxEnergy;
-
-        state.fullAt =
-            currentTime;
-
-        state.waitingForCheck =
-            true;
-
-    } else {
-
-        state.waitingForCheck =
-            false;
-    }
-
-
-    state.notificationShownForCycle =
+    state.waitingForNewEnergy =
         false;
 
-
-    saveState();
-
-    renderDashboard();
-}
-
-
-function beginNextRecharge() {
-
-    const currentTime =
-        now();
-
-
-    state.currentEnergy =
-        0;
-
-    state.startingEnergy =
-        0;
-
-    state.trackingStartedAt =
-        currentTime;
-
-    state.fullAt =
-        currentTime +
-        (
-            getFullRechargeSeconds() *
-            1000
-        );
 
     state.waitingForCheck =
-        false;
+        safeEnergy >=
+        config.maxEnergy;
+
 
     state.notificationShownForCycle =
         false;
@@ -1333,29 +1396,126 @@ function beginNextRecharge() {
 
     saveState();
 
-    renderDashboard();
+    renderAll();
 }
 
 
-/* =====================================================================
-   CHECK WORKFLOW
-   ===================================================================== */
+/* =================================================================
+   AFTER VAULT CHECK
+   ================================================================= */
+
+function prepareForNextEnergyEntry() {
+
+    /*
+     * We do NOT calculate the next energy ourselves.
+     *
+     * The user checks the game and enters whatever
+     * energy the game actually shows.
+     */
+
+    state.currentEnergy = 0;
+
+    state.startingEnergy = 0;
+
+    state.trackingStartedAt = null;
+
+    state.fullAt = null;
+
+    state.waitingForCheck = false;
+
+    state.waitingForNewEnergy = true;
+
+    state.notificationShownForCycle = false;
+
+
+    dom.energyInput.value = "";
+
+
+    dom.energyInput.placeholder =
+        "Enter energy after vault";
+
+
+    dom.energyInputError.hidden =
+        false;
+
+
+    dom.energyInputError.textContent =
+        "Enter the new energy shown in the game to start the next cycle.";
+
+
+    dom.energyStatusText.textContent =
+        "Vault recorded. Enter the remaining energy from the game.";
+
+
+    dom.energyStateBadge.textContent =
+        "Next cycle";
+
+    dom.energyStateBadge.className =
+        "status-badge status-badge--idle";
+
+
+    saveState();
+
+    renderAll();
+
+
+    setTimeout(
+        () => {
+
+            dom.energyInput.focus();
+
+        },
+        50
+    );
+}
+
+
+/* =================================================================
+   CHECK RESULT MODAL
+   ================================================================= */
 
 function openCheckResultModal() {
 
-    if (!state.waitingForCheck) {
+    if (
+        !state.waitingForCheck
+    ) {
+
         return;
     }
 
 
-    const latestBefore =
+    const dashboardBalance =
+        Number(
+            dom.balanceBeforeInput.value
+        );
+
+
+    const previousBalance =
         getMostRecentBalance();
 
 
-    dom.modalBalanceBefore.value =
-        latestBefore !== null
-            ? latestBefore
-            : "";
+    if (
+        Number.isFinite(
+            dashboardBalance
+        ) &&
+        dashboardBalance >= 0
+    ) {
+
+        dom.modalBalanceBefore.value =
+            dashboardBalance;
+
+    } else if (
+        previousBalance !== null
+    ) {
+
+        dom.modalBalanceBefore.value =
+            previousBalance;
+
+    } else {
+
+        dom.modalBalanceBefore.value =
+            "";
+    }
 
 
     dom.modalBalanceAfter.value =
@@ -1373,11 +1533,14 @@ function openCheckResultModal() {
         "check-result";
 
 
-    setTimeout(() => {
+    setTimeout(
+        () => {
 
-        dom.modalBalanceAfter.focus();
+            dom.modalBalanceAfter.focus();
 
-    }, 50);
+        },
+        50
+    );
 }
 
 
@@ -1396,6 +1559,7 @@ function getMostRecentBalance() {
     if (
         state.history.length === 0
     ) {
+
         return null;
     }
 
@@ -1485,32 +1649,15 @@ function updateCheckModalPreview() {
         formatHumanDuration(
             overdue
         );
-
-
-    if (earnings > 0) {
-
-        dom.modalEarningsPreview
-            .style.color =
-            "var(--success)";
-
-    } else if (earnings < 0) {
-
-        dom.modalEarningsPreview
-            .style.color =
-            "var(--danger)";
-
-    } else {
-
-        dom.modalEarningsPreview
-            .style.color =
-            "var(--text-secondary)";
-    }
 }
 
 
 function saveVaultCheck() {
 
-    if (!state.waitingForCheck) {
+    if (
+        !state.waitingForCheck
+    ) {
+
         return;
     }
 
@@ -1577,10 +1724,17 @@ function saveVaultCheck() {
         balanceBefore;
 
 
+    /*
+     * Record ONLY what we know.
+     *
+     * Energy after the vault is intentionally
+     * not guessed by the tracker.
+     */
+
     const record = {
 
         id:
-            cryptoRandomId(),
+            randomId(),
 
         fullAt:
             fullTimestamp,
@@ -1596,10 +1750,10 @@ function saveVaultCheck() {
         earnings,
 
         energyAtStart:
-            state.startingEnergy,
+            config.maxEnergy,
 
-        energyCost:
-            config.vaultEnergyCost
+        energyAfterVault:
+            null
     };
 
 
@@ -1622,16 +1776,28 @@ function saveVaultCheck() {
     );
 
 
-    beginNextRecharge();
-
-
     saveState();
 
+
     renderAll();
+
+
+    /*
+     * Now ask for the actual remaining energy
+     * from the game.
+     */
+
+    prepareForNextEnergyEntry();
 }
 
 
-function showLatestResult(record) {
+/* =================================================================
+   LATEST RESULT
+   ================================================================= */
+
+function showLatestResult(
+    record
+) {
 
     dom.latestResultCard.hidden =
         false;
@@ -1665,14 +1831,110 @@ function showLatestResult(record) {
         formatHumanDuration(
             record.overdueSeconds
         );
+
+
+    dom.balanceBeforeInput.value =
+        record.balanceAfter;
 }
 
 
-/* =====================================================================
-   NAVIGATION
-   ===================================================================== */
+/* =================================================================
+   START NEXT CYCLE FROM USER-ENTERED ENERGY
+   ================================================================= */
 
-function navigateTo(page) {
+function handleEnergyInputSubmit() {
+
+    const raw =
+        dom.energyInput.value.trim();
+
+
+    if (
+        raw === ""
+    ) {
+
+        dom.energyInputError.hidden =
+            false;
+
+        dom.energyInputError.textContent =
+            state.waitingForNewEnergy
+                ? "Enter the new energy shown in the game."
+                : "Enter your current energy.";
+
+        dom.energyInput.focus();
+
+        return;
+    }
+
+
+    const value =
+        Number(raw);
+
+
+    if (
+        !Number.isInteger(value)
+    ) {
+
+        dom.energyInputError.hidden =
+            false;
+
+        dom.energyInputError.textContent =
+            "Energy must be a whole number.";
+
+        dom.energyInput.focus();
+
+        return;
+    }
+
+
+    if (
+        value < 0 ||
+        value > config.maxEnergy
+    ) {
+
+        dom.energyInputError.hidden =
+            false;
+
+        dom.energyInputError.textContent =
+            `Enter a value from 0 to ${config.maxEnergy}.`;
+
+        dom.energyInput.focus();
+
+        return;
+    }
+
+
+    dom.energyInputError.hidden =
+        true;
+
+
+    if (
+        state.waitingForNewEnergy
+    ) {
+
+        startTracking(
+            value
+        );
+
+    } else {
+
+        startTracking(
+            value
+        );
+    }
+
+
+    dom.energyInput.value =
+        "";
+}
+
+
+/* =================================================================
+   NAVIGATION
+   ================================================================= */
+
+function navigateTo(
+    page
+) {
 
     const validPages = [
         "dashboard",
@@ -1683,9 +1945,13 @@ function navigateTo(page) {
 
 
     if (
-        !validPages.includes(page)
+        !validPages.includes(
+            page
+        )
     ) {
-        page = "dashboard";
+
+        page =
+            "dashboard";
     }
 
 
@@ -1696,17 +1962,18 @@ function navigateTo(page) {
     dom.pages.forEach(
         pageElement => {
 
-            const isCurrent =
+            const active =
                 pageElement.dataset.pageContent ===
                 page;
 
 
             pageElement.hidden =
-                !isCurrent;
+                !active;
+
 
             pageElement.classList.toggle(
                 "is-active",
-                isCurrent
+                active
             );
         }
     );
@@ -1715,30 +1982,52 @@ function navigateTo(page) {
     dom.navButtons.forEach(
         button => {
 
-            const isCurrent =
-                button.dataset.page ===
-                page;
-
-
             button.classList.toggle(
                 "is-active",
-                isCurrent
+                button.dataset.page ===
+                page
             );
         }
     );
 
 
-    if (page === "settings") {
-        updateSettingsUI();
+    if (
+        page ===
+        "dashboard"
+    ) {
+
+        renderDashboard();
     }
 
-    if (page === "analytics") {
+
+    if (
+        page ===
+        "analytics"
+    ) {
+
         renderAnalytics();
     }
 
-    if (page === "history") {
+
+    if (
+        page ===
+        "history"
+    ) {
+
         renderHistory();
     }
+
+
+    if (
+        page ===
+        "settings"
+    ) {
+
+        updateSettingsUI();
+    }
+
+
+    saveState();
 
 
     window.scrollTo({
@@ -1748,9 +2037,9 @@ function navigateTo(page) {
 }
 
 
-/* =====================================================================
-   DASHBOARD RENDERING
-   ===================================================================== */
+/* =================================================================
+   DASHBOARD
+   ================================================================= */
 
 function renderDashboard() {
 
@@ -1760,16 +2049,14 @@ function renderDashboard() {
     const current =
         state.currentEnergy;
 
+
     const max =
         config.maxEnergy;
 
 
-    /* -------------------------------------------------------------
-       Energy
-       ------------------------------------------------------------- */
-
     dom.dashboardCurrentEnergy.textContent =
         current;
+
 
     dom.dashboardMaxEnergy.textContent =
         max;
@@ -1778,43 +2065,44 @@ function renderDashboard() {
     dom.energyInput.max =
         max;
 
+
     dom.energyInputSuffix.textContent =
         `/ ${max}`;
 
 
-    /* -------------------------------------------------------------
-       Progress
-       ------------------------------------------------------------- */
+    /*
+     * ---------------------------------------------------------------
+     * Progress
+     * ---------------------------------------------------------------
+     */
 
     const percentage =
         max > 0
-            ? (current / max) * 100
+            ? (
+                current /
+                max
+            ) *
+            100
             : 0;
 
 
-    const safePercentage =
-        clamp(
+    dom.energyProgressBar.style.width =
+        `${clamp(
             percentage,
             0,
             100
-        );
-
-
-    dom.energyProgressBar.style.width =
-        `${safePercentage}%`;
+        )}%`;
 
 
     dom.energyProgressPercentage.textContent =
-        `${Math.round(safePercentage)}%`;
+        `${Math.round(
+            percentage
+        )}%`;
 
 
     dom.energyProgressMax.textContent =
         max;
 
-
-    /* -------------------------------------------------------------
-       Accessibility
-       ------------------------------------------------------------- */
 
     dom.energyProgressBar
         .setAttribute(
@@ -1823,19 +2111,26 @@ function renderDashboard() {
         );
 
 
-    /* -------------------------------------------------------------
-       Current state
-       ------------------------------------------------------------- */
+    /*
+     * ---------------------------------------------------------------
+     * Current state
+     * ---------------------------------------------------------------
+     */
 
     if (
+        state.waitingForNewEnergy
+    ) {
+
+        renderWaitingForNewEnergy();
+
+    } else if (
         state.waitingForCheck
     ) {
 
         renderFullState();
 
     } else if (
-        state.fullAt !== null &&
-        state.fullAt > now()
+        state.fullAt !== null
     ) {
 
         renderChargingState();
@@ -1846,16 +2141,7 @@ function renderDashboard() {
     }
 
 
-    /* -------------------------------------------------------------
-       Info
-       ------------------------------------------------------------- */
-
     renderRechargeInfo();
-
-
-    /* -------------------------------------------------------------
-       Today's statistics
-       ------------------------------------------------------------- */
 
     renderTodayStats();
 }
@@ -1885,6 +2171,47 @@ function renderIdleState() {
     dom.startTrackingButton.textContent =
         "Start";
 
+
+    dom.startTrackingButton.disabled =
+        false;
+
+
+    dom.energyCheckSection.hidden =
+        true;
+
+
+    dom.energyCard?.classList.remove(
+        "is-full"
+    );
+}
+
+
+function renderWaitingForNewEnergy() {
+
+    dom.energyStateBadge.textContent =
+        "Next cycle";
+
+
+    dom.energyStateBadge.className =
+        "status-badge status-badge--idle";
+
+
+    dom.energyStatusText.textContent =
+        "Vault recorded — enter the remaining energy from the game.";
+
+
+    dom.countdown.textContent =
+        "--:--:--";
+
+
+    dom.fullAt.innerHTML =
+        "Full at <strong>waiting for energy</strong>";
+
+
+    dom.startTrackingButton.textContent =
+        "Start Next Cycle";
+
+
     dom.startTrackingButton.disabled =
         false;
 
@@ -1911,24 +2238,18 @@ function renderChargingState() {
         );
 
 
-    const progress =
-        config.maxEnergy > 0
-            ? (
-                state.currentEnergy /
-                config.maxEnergy
-            ) * 100
-            : 0;
-
-
     dom.energyStateBadge.textContent =
         "Recharging";
+
 
     dom.energyStateBadge.className =
         "status-badge status-badge--counting";
 
 
     dom.energyStatusText.textContent =
-        "⏳ Energy is recharging.";
+        `⏳ Recharging · ${
+            state.currentEnergy
+        }/${config.maxEnergy}`;
 
 
     dom.countdown.textContent =
@@ -1948,6 +2269,7 @@ function renderChargingState() {
     dom.startTrackingButton.textContent =
         "Tracking";
 
+
     dom.startTrackingButton.disabled =
         true;
 
@@ -1959,21 +2281,18 @@ function renderChargingState() {
     dom.energyCard?.classList.remove(
         "is-full"
     );
-
-
-    dom.energyProgressBar.style.width =
-        `${clamp(
-            progress,
-            0,
-            100
-        )}%`;
 }
 
 
 function renderFullState() {
 
+    dom.dashboardCurrentEnergy.textContent =
+        config.maxEnergy;
+
+
     dom.energyStateBadge.textContent =
         "Full";
+
 
     dom.energyStateBadge.className =
         "status-badge status-badge--full";
@@ -1997,6 +2316,7 @@ function renderFullState() {
 
     dom.startTrackingButton.textContent =
         "Full";
+
 
     dom.startTrackingButton.disabled =
         true;
@@ -2031,16 +2351,41 @@ function renderFullState() {
 
 function renderRechargeInfo() {
 
-    dom.startingEnergy.textContent =
-        state.trackingStartedAt !== null
-            ? `${state.startingEnergy} / ${config.maxEnergy}`
-            : "—";
+    if (
+        state.waitingForNewEnergy
+    ) {
+
+        dom.startingEnergy.textContent =
+            "Waiting";
 
 
-    dom.remainingEnergy.textContent =
+        dom.remainingEnergy.textContent =
+            "Enter from game";
+
+    } else if (
         state.trackingStartedAt !== null
-            ? `${getRemainingEnergy()} ⚡`
-            : "—";
+    ) {
+
+        dom.startingEnergy.textContent =
+            `${state.startingEnergy} / ${config.maxEnergy}`;
+
+
+        dom.remainingEnergy.textContent =
+            `${Math.max(
+                0,
+                config.maxEnergy -
+                state.currentEnergy
+            )} ⚡`;
+
+    } else {
+
+        dom.startingEnergy.textContent =
+            "—";
+
+
+        dom.remainingEnergy.textContent =
+            "—";
+    }
 
 
     dom.rechargeRate.textContent =
@@ -2053,167 +2398,100 @@ function renderRechargeInfo() {
         );
 
 
+    /*
+     * The tracker intentionally does not simulate
+     * vault energy consumption.
+     */
+
     dom.vaultEnergyCost.textContent =
-        `${config.vaultEnergyCost} ⚡`;
+        "Game decides";
 
 
     dom.vaultsPossible.textContent =
-        getPossibleVaults();
+        "—";
 }
 
 
+/* =================================================================
+   TODAY
+   ================================================================= */
+
 function renderTodayStats() {
 
-    const todayRecords =
+    const records =
         getRecordsForPeriod(
             "today"
         );
 
 
     const checks =
-        todayRecords.length;
+        records.length;
 
 
     const overdue =
-        todayRecords.filter(
+        records.filter(
             record =>
                 record.overdueSeconds > 1
         ).length;
 
 
-    const totalEarnings =
+    const earnings =
         sum(
-            todayRecords,
+            records,
             record =>
                 record.earnings
         );
 
 
-    const totalLate =
+    const lateSeconds =
         sum(
-            todayRecords,
+            records,
             record =>
                 record.overdueSeconds
         );
 
 
-    const averageReward =
+    const average =
         checks > 0
-            ? totalEarnings / checks
+            ? earnings /
+              checks
             : 0;
 
 
     dom.todayChecks.textContent =
         checks;
 
+
     dom.todayVaults.textContent =
         checks;
 
+
     dom.todayEarnings.textContent =
         formatMoney(
-            totalEarnings
+            earnings
         );
+
 
     dom.todayOverdue.textContent =
         overdue;
 
+
     dom.todayLateTime.textContent =
         formatHumanDuration(
-            totalLate
+            lateSeconds
         );
+
 
     dom.todayAverageReward.textContent =
         formatMoney(
-            averageReward
+            average
         );
 }
 
 
-function sum(array, selector) {
-
-    return array.reduce(
-        (
-            total,
-            item
-        ) =>
-            total +
-            (
-                Number(
-                    selector(item)
-                ) || 0
-            ),
-        0
-    );
-}
-
-
-/* =====================================================================
+/* =================================================================
    ANALYTICS
-   ===================================================================== */
-
-function getRecordsForPeriod(period) {
-
-    const currentTime =
-        now();
-
-
-    let startTime;
-
-
-    switch (period) {
-
-        case "today":
-
-            startTime =
-                getStartOfDay(
-                    currentTime
-                );
-
-            break;
-
-
-        case "7days":
-
-            startTime =
-                getDaysAgoStart(
-                    6
-                );
-
-            break;
-
-
-        case "30days":
-
-            startTime =
-                getDaysAgoStart(
-                    29
-                );
-
-            break;
-
-
-        case "all":
-
-            return [
-                ...state.history
-            ];
-
-        default:
-
-            startTime =
-                getStartOfDay(
-                    currentTime
-                );
-    }
-
-
-    return state.history.filter(
-        record =>
-            record.checkedAt >=
-            startTime
-    );
-}
-
+   ================================================================= */
 
 function renderAnalytics() {
 
@@ -2235,31 +2513,35 @@ function renderAnalytics() {
         );
 
 
-    const averageReward =
+    const average =
         checks > 0
-            ? earnings / checks
+            ? earnings /
+              checks
             : 0;
 
 
     const rewards =
-        records
-            .map(
-                record =>
-                    Number(
-                        record.earnings
-                    ) || 0
-            );
+        records.map(
+            record =>
+                Number(
+                    record.earnings
+                ) || 0
+        );
 
 
-    const highestReward =
-        rewards.length > 0
-            ? Math.max(...rewards)
+    const highest =
+        rewards.length
+            ? Math.max(
+                ...rewards
+            )
             : 0;
 
 
-    const lowestReward =
-        rewards.length > 0
-            ? Math.min(...rewards)
+    const lowest =
+        rewards.length
+            ? Math.min(
+                ...rewards
+            )
             : 0;
 
 
@@ -2275,7 +2557,7 @@ function renderAnalytics() {
         overdueRecords.length;
 
 
-    const totalLate =
+    const lateSeconds =
         sum(
             records,
             record =>
@@ -2284,8 +2566,8 @@ function renderAnalytics() {
 
 
     const averageLate =
-        overdueRecords.length > 0
-            ? totalLate /
+        overdueRecords.length
+            ? lateSeconds /
               overdueRecords.length
             : 0;
 
@@ -2298,19 +2580,19 @@ function renderAnalytics() {
 
     dom.analyticsAverageReward.textContent =
         formatMoney(
-            averageReward
+            average
         );
 
 
     dom.analyticsHighestReward.textContent =
         formatSignedMoney(
-            highestReward
+            highest
         );
 
 
     dom.analyticsLowestReward.textContent =
         formatSignedMoney(
-            lowestReward
+            lowest
         );
 
 
@@ -2332,7 +2614,7 @@ function renderAnalytics() {
 
     dom.analyticsLateTime.textContent =
         formatHumanDuration(
-            totalLate
+            lateSeconds
         );
 
 
@@ -2377,15 +2659,14 @@ function renderAnalytics() {
 }
 
 
-/* =====================================================================
-   ANALYTICS CALCULATIONS
-   ===================================================================== */
-
 function calculateBestOnTimeStreak(
     records
 ) {
 
-    if (records.length === 0) {
+    if (
+        records.length === 0
+    ) {
+
         return 0;
     }
 
@@ -2399,12 +2680,18 @@ function calculateBestOnTimeStreak(
             );
 
 
-    let current = 0;
+    let current =
+        0;
 
-    let best = 0;
+
+    let best =
+        0;
 
 
-    for (const record of sorted) {
+    for (
+        const record
+        of sorted
+    ) {
 
         if (
             record.overdueSeconds <= 1
@@ -2433,13 +2720,16 @@ function calculateTrackedDays(
     records
 ) {
 
-    const uniqueDays =
+    const days =
         new Set();
 
 
-    for (const record of records) {
+    for (
+        const record
+        of records
+    ) {
 
-        uniqueDays.add(
+        days.add(
             getStartOfDay(
                 record.checkedAt
             )
@@ -2447,22 +2737,95 @@ function calculateTrackedDays(
     }
 
 
-    return uniqueDays.size;
+    return days.size;
 }
 
 
-/* =====================================================================
-   ANALYTICS CHARTS
-   ===================================================================== */
+/* =================================================================
+   ANALYTICS PERIOD
+   ================================================================= */
+
+function getRecordsForPeriod(
+    period
+) {
+
+    if (
+        period ===
+        "all"
+    ) {
+
+        return [
+            ...state.history
+        ];
+    }
+
+
+    const currentTime =
+        now();
+
+
+    let start;
+
+
+    switch (
+        period
+    ) {
+
+        case "7days":
+
+            start =
+                getDaysAgoStart(
+                    6
+                );
+
+            break;
+
+
+        case "30days":
+
+            start =
+                getDaysAgoStart(
+                    29
+                );
+
+            break;
+
+
+        case "today":
+
+        default:
+
+            start =
+                getStartOfDay(
+                    currentTime
+                );
+    }
+
+
+    return state.history.filter(
+        record =>
+            record.checkedAt >=
+            start
+    );
+}
+
+
+/* =================================================================
+   CHARTS
+   ================================================================= */
 
 function groupRecordsByDay(
     records
 ) {
 
-    const map = new Map();
+    const map =
+        new Map();
 
 
-    for (const record of records) {
+    for (
+        const record
+        of records
+    ) {
 
         const day =
             getStartOfDay(
@@ -2470,50 +2833,56 @@ function groupRecordsByDay(
             );
 
 
-        if (!map.has(day)) {
+        if (
+            !map.has(day)
+        ) {
 
             map.set(
                 day,
                 {
-                    date: day,
-                    earnings: 0,
-                    vaults: 0,
-                    overdue: 0,
-                    lateSeconds: 0
+                    date:
+                        day,
+
+                    earnings:
+                        0,
+
+                    vaults:
+                        0,
+
+                    lateSeconds:
+                        0
                 }
             );
         }
 
 
-        const item =
+        const entry =
             map.get(day);
 
 
-        item.earnings +=
+        entry.earnings +=
             Number(
                 record.earnings
             ) || 0;
 
-        item.vaults++;
 
-        if (
-            record.overdueSeconds > 1
-        ) {
-            item.overdue++;
-        }
+        entry.vaults++;
 
-        item.lateSeconds +=
+
+        entry.lateSeconds +=
             Number(
                 record.overdueSeconds
             ) || 0;
     }
 
 
-    return [...map.values()]
-        .sort(
-            (a, b) =>
-                a.date - b.date
-        );
+    return [
+        ...map.values()
+    ].sort(
+        (a, b) =>
+            a.date -
+            b.date
+    );
 }
 
 
@@ -2521,37 +2890,41 @@ function renderAnalyticsCharts(
     records
 ) {
 
-    const days =
+    const grouped =
         groupRecordsByDay(
             records
         );
 
 
-    renderSimpleChart(
+    renderBarChart(
         dom.earningsChart,
-        days,
+        grouped,
         item =>
             item.earnings,
         item =>
-            formatMoney(item.earnings),
+            formatMoney(
+                item.earnings
+            ),
         "Earnings"
     );
 
 
-    renderSimpleChart(
+    renderBarChart(
         dom.vaultChart,
-        days,
+        grouped,
         item =>
             item.vaults,
         item =>
-            String(item.vaults),
+            String(
+                item.vaults
+            ),
         "Vaults"
     );
 
 
-    renderSimpleChart(
+    renderBarChart(
         dom.overdueChart,
-        days,
+        grouped,
         item =>
             item.lateSeconds,
         item =>
@@ -2563,7 +2936,7 @@ function renderAnalyticsCharts(
 }
 
 
-function renderSimpleChart(
+function renderBarChart(
     container,
     data,
     valueSelector,
@@ -2576,7 +2949,9 @@ function renderSimpleChart(
     }
 
 
-    if (data.length === 0) {
+    if (
+        data.length === 0
+    ) {
 
         container.innerHTML =
             `
@@ -2585,6 +2960,7 @@ function renderSimpleChart(
                         display:flex;
                         align-items:center;
                         justify-content:center;
+                        width:100%;
                         min-height:145px;
                         color:var(--text-muted);
                         font-size:.73rem;
@@ -2598,113 +2974,17 @@ function renderSimpleChart(
     }
 
 
-    const values =
-        data.map(
-            valueSelector
-        );
+    const visible =
+        data.slice(-14);
 
 
     const maximum =
         Math.max(
-            ...values,
-            1
+            1,
+            ...visible.map(
+                valueSelector
+            )
         );
-
-
-    const items =
-        data
-            .slice(-14)
-            .map(item => {
-
-                const value =
-                    valueSelector(
-                        item
-                    );
-
-
-                const percentage =
-                    (
-                        value /
-                        maximum
-                    ) *
-                    100;
-
-
-                return `
-                    <div
-                        style="
-                            flex:1;
-                            min-width:16px;
-                            display:flex;
-                            flex-direction:column;
-                            justify-content:flex-end;
-                            align-items:center;
-                            gap:5px;
-                            height:145px;
-                        "
-                        title="${escapeHtml(
-                            formatDateLong(
-                                item.date
-                            )
-                        )}: ${escapeHtml(
-                            valueFormatter(item)
-                        )}"
-                    >
-
-                        <span
-                            style="
-                                color:var(--text-muted);
-                                font-size:.55rem;
-                                white-space:nowrap;
-                            "
-                        >
-                            ${escapeHtml(
-                                valueFormatter(item)
-                            )}
-                        </span>
-
-                        <div
-                            style="
-                                width:100%;
-                                max-width:27px;
-                                min-height:2px;
-                                height:${Math.max(
-                                    4,
-                                    percentage * 0.95
-                                )}px;
-                                border-radius:6px 6px 3px 3px;
-                                background:linear-gradient(
-                                    to top,
-                                    var(--accent-dark),
-                                    var(--accent)
-                                );
-                            "
-                        ></div>
-
-                        <span
-                            style="
-                                color:var(--text-muted);
-                                font-size:.52rem;
-                                white-space:nowrap;
-                            "
-                        >
-                            ${escapeHtml(
-                                new Date(
-                                    item.date
-                                ).toLocaleDateString(
-                                    [],
-                                    {
-                                        month: "short",
-                                        day: "numeric"
-                                    }
-                                )
-                            )}
-                        </span>
-
-                    </div>
-                `;
-            })
-            .join("");
 
 
     container.innerHTML =
@@ -2712,19 +2992,131 @@ function renderSimpleChart(
             <div
                 style="
                     width:100%;
+                    height:160px;
                     display:flex;
                     align-items:flex-end;
                     gap:5px;
-                    padding:5px 3px 3px;
+                    padding:3px;
                     overflow-x:auto;
                 "
-                aria-label="${label} chart"
+                aria-label="${escapeHtml(label)} chart"
             >
-                ${items}
+                ${
+                    visible
+                        .map(
+                            item => {
+
+                                const value =
+                                    Math.max(
+                                        0,
+                                        valueSelector(
+                                            item
+                                        )
+                                    );
+
+
+                                const height =
+                                    Math.max(
+                                        3,
+                                        (
+                                            value /
+                                            maximum
+                                        ) *
+                                        100
+                                    );
+
+
+                                return `
+                                    <div
+                                        style="
+                                            flex:1;
+                                            min-width:18px;
+                                            height:150px;
+                                            display:flex;
+                                            flex-direction:column;
+                                            align-items:center;
+                                            justify-content:flex-end;
+                                            gap:5px;
+                                        "
+                                        title="${escapeHtml(
+                                            formatDateLong(
+                                                item.date
+                                            )
+                                        )}"
+                                    >
+
+                                        <span
+                                            style="
+                                                color:var(--text-muted);
+                                                font-size:.50rem;
+                                                max-width:55px;
+                                                overflow:hidden;
+                                                text-overflow:ellipsis;
+                                                white-space:nowrap;
+                                            "
+                                        >
+                                            ${escapeHtml(
+                                                valueFormatter(
+                                                    item
+                                                )
+                                            )}
+                                        </span>
+
+
+                                        <div
+                                            style="
+                                                width:100%;
+                                                max-width:28px;
+                                                height:${height}%;
+                                                min-height:3px;
+                                                border-radius:6px 6px 3px 3px;
+                                                background:
+                                                    linear-gradient(
+                                                        to top,
+                                                        var(--accent-dark),
+                                                        var(--accent)
+                                                    );
+                                            "
+                                        ></div>
+
+
+                                        <span
+                                            style="
+                                                color:var(--text-muted);
+                                                font-size:.50rem;
+                                                white-space:nowrap;
+                                            "
+                                        >
+                                            ${escapeHtml(
+                                                new Date(
+                                                    item.date
+                                                )
+                                                    .toLocaleDateString(
+                                                        [],
+                                                        {
+                                                            month:
+                                                                "short",
+                                                            day:
+                                                                "numeric"
+                                                        }
+                                                    )
+                                            )}
+                                        </span>
+
+                                    </div>
+                                `;
+                            }
+                        )
+                        .join("")
+                }
             </div>
         `;
 }
 
+
+/* =================================================================
+   EFFICIENCY
+   ================================================================= */
 
 function renderEfficiency(
     records
@@ -2746,7 +3138,8 @@ function renderEfficiency(
             ? (
                 onTime /
                 checks
-            ) * 100
+            ) *
+            100
             : 0;
 
 
@@ -2757,139 +3150,38 @@ function renderEfficiency(
 
 
     dom.checkEfficiencyBar.style.width =
-        `${efficiency}%`;
-
-
-    /*
-     * The theoretical capacity metric:
-     *
-     * Every completed check represents one full recharge.
-     * We compare actual number of checks against the maximum number
-     * of full recharge cycles that can theoretically fit into the
-     * selected period.
-     *
-     * This is deliberately an estimate rather than a claim about
-     * actual game limits.
-     */
-
-    const estimatedCycles =
-        calculateTheoreticalCycles(
-            state.analyticsPeriod
-        );
-
-
-    const capacity =
-        estimatedCycles > 0
-            ? Math.min(
-                100,
-                (
-                    checks /
-                    estimatedCycles
-                ) * 100
-            )
-            : 0;
-
-
-    dom.vaultCapacityEfficiency.textContent =
-        `${Math.round(
-            capacity
+        `${clamp(
+            efficiency,
+            0,
+            100
         )}%`;
 
 
+    /*
+     * There is intentionally NO "vault capacity simulation".
+     *
+     * The tracker does not know what energy the game leaves after
+     * a vault, so theoretical vault capacity would be fake data.
+     */
+
+    dom.vaultCapacityEfficiency.textContent =
+        "Observed";
+
+
     dom.vaultCapacityEfficiencyBar.style.width =
-        `${capacity}%`;
+        "0%";
 }
 
 
-function calculateTheoreticalCycles(
-    period
-) {
-
-    const fullRecharge =
-        getFullRechargeSeconds();
-
-
-    if (
-        !Number.isFinite(
-            fullRecharge
-        ) ||
-        fullRecharge <= 0
-    ) {
-        return 0;
-    }
-
-
-    let seconds;
-
-
-    switch (period) {
-
-        case "today":
-            seconds = 86400;
-            break;
-
-        case "7days":
-            seconds = 86400 * 7;
-            break;
-
-        case "30days":
-            seconds = 86400 * 30;
-            break;
-
-        case "all":
-
-            if (
-                state.history.length === 0
-            ) {
-                return 0;
-            }
-
-
-            const earliest =
-                Math.min(
-                    ...state.history.map(
-                        record =>
-                            record.checkedAt
-                    )
-                );
-
-
-            seconds =
-                Math.max(
-                    86400,
-                    now() -
-                    getStartOfDay(
-                        earliest
-                    )
-                );
-
-            break;
-
-        default:
-            seconds = 86400;
-    }
-
-
-    return Math.floor(
-        seconds /
-        fullRecharge
-    );
-}
-
-
-/* =====================================================================
+/* =================================================================
    HISTORY
-   ===================================================================== */
+   ================================================================= */
 
 function getFilteredHistory() {
 
     let records =
         [...state.history];
 
-
-    /* -------------------------------------------------------------
-       Date filter
-       ------------------------------------------------------------- */
 
     const currentTime =
         now();
@@ -2919,6 +3211,7 @@ function getFilteredHistory() {
                 getStartOfDay(
                     currentTime
                 );
+
 
             const yesterday =
                 today -
@@ -2967,10 +3260,6 @@ function getFilteredHistory() {
     }
 
 
-    /* -------------------------------------------------------------
-       Status filter
-       ------------------------------------------------------------- */
-
     if (
         state.historyStatusFilter ===
         "ontime"
@@ -2997,30 +3286,28 @@ function getFilteredHistory() {
     }
 
 
-    /* -------------------------------------------------------------
-       Search
-       ------------------------------------------------------------- */
-
     const search =
         state.historySearch
             .trim()
             .toLowerCase();
 
 
-    if (search) {
+    if (
+        search
+    ) {
 
         records =
             records.filter(
                 record => {
 
-                    const searchable =
+                    const text =
                         [
                             formatDate(
                                 record.checkedAt
                             ),
 
-                            formatDate(
-                                record.fullAt
+                            formatTime(
+                                record.checkedAt
                             ),
 
                             formatMoney(
@@ -3036,26 +3323,26 @@ function getFilteredHistory() {
                             ),
 
                             String(
-                                record.earnings
+                                record.energyAtStart
                             )
                         ]
                         .join(" ")
                         .toLowerCase();
 
 
-                    return searchable
-                        .includes(search);
+                    return text.includes(
+                        search
+                    );
                 }
             );
     }
 
 
-    return records
-        .sort(
-            (a, b) =>
-                b.checkedAt -
-                a.checkedAt
-        );
+    return records.sort(
+        (a, b) =>
+            b.checkedAt -
+            a.checkedAt
+    );
 }
 
 
@@ -3119,7 +3406,7 @@ function renderHistory() {
                     </p>
 
                     <small>
-                        Change your filters or complete a vault check.
+                        Complete a vault check to create history.
                     </small>
 
                 </div>
@@ -3146,14 +3433,6 @@ function createHistoryItem(
         record.overdueSeconds > 1;
 
 
-    const earningsClass =
-        record.earnings > 0
-            ? "text-success"
-            : record.earnings < 0
-                ? "text-danger"
-                : "text-muted";
-
-
     const statusClass =
         overdue
             ? "history-item__status--overdue"
@@ -3162,10 +3441,20 @@ function createHistoryItem(
 
     const statusText =
         overdue
-            ? `⚠ ${formatHumanDuration(
-                record.overdueSeconds
-            )} late`
+            ? `⚠ ${
+                formatHumanDuration(
+                    record.overdueSeconds
+                )
+              } late`
             : "✓ On time";
+
+
+    const earningsClass =
+        record.earnings > 0
+            ? "text-success"
+            : record.earnings < 0
+                ? "text-danger"
+                : "text-muted";
 
 
     return `
@@ -3205,7 +3494,9 @@ function createHistoryItem(
                         ${statusClass}
                     "
                 >
-                    ${statusText}
+                    ${escapeHtml(
+                        statusText
+                    )}
                 </span>
 
             </div>
@@ -3272,6 +3563,23 @@ function createHistoryItem(
                 <div class="history-item__detail">
 
                     <span class="history-item__detail-label">
+                        Energy at Start
+                    </span>
+
+                    <strong class="history-item__detail-value">
+                        ${
+                            record.energyAtStart === null
+                                ? "—"
+                                : `${record.energyAtStart}/${config.maxEnergy}`
+                        }
+                    </strong>
+
+                </div>
+
+
+                <div class="history-item__detail">
+
+                    <span class="history-item__detail-label">
                         Full / Checked
                     </span>
 
@@ -3291,6 +3599,23 @@ function createHistoryItem(
 
                 </div>
 
+
+                <div class="history-item__detail">
+
+                    <span class="history-item__detail-label">
+                        Overdue
+                    </span>
+
+                    <strong class="history-item__detail-value">
+                        ${escapeHtml(
+                            formatHumanDuration(
+                                record.overdueSeconds
+                            )
+                        )}
+                    </strong>
+
+                </div>
+
             </div>
 
         </article>
@@ -3298,9 +3623,9 @@ function createHistoryItem(
 }
 
 
-/* =====================================================================
+/* =================================================================
    SETTINGS
-   ===================================================================== */
+   ================================================================= */
 
 function updateSettingsUI() {
 
@@ -3312,8 +3637,19 @@ function updateSettingsUI() {
         config.secPerEnergy;
 
 
-    dom.settingVaultEnergyCost.value =
-        config.vaultEnergyCost;
+    /*
+     * This field is retained for compatibility with
+     * the existing HTML, but it is NOT used by the
+     * tracking engine.
+     */
+
+    if (
+        dom.settingVaultEnergyCost
+    ) {
+
+        dom.settingVaultEnergyCost.value =
+            "";
+    }
 
 
     dom.settingMinReward.value =
@@ -3346,6 +3682,208 @@ function updateSettingsUI() {
 }
 
 
+function applySettings() {
+
+    /*
+     * Capture actual current energy BEFORE changing
+     * configuration.
+     */
+
+    recomputeState();
+
+
+    const oldCurrentEnergy =
+        state.currentEnergy;
+
+
+    let maxEnergy =
+        sanitizeInteger(
+            dom.settingMaxEnergy.value,
+            config.maxEnergy,
+            1,
+            9999
+        );
+
+
+    let secPerEnergy =
+        sanitizeInteger(
+            dom.settingSecondsPerEnergy.value,
+            config.secPerEnergy,
+            1,
+            9999
+        );
+
+
+    let minReward =
+        sanitizeNumber(
+            dom.settingMinReward.value,
+            config.minReward,
+            0
+        );
+
+
+    let maxReward =
+        sanitizeNumber(
+            dom.settingMaxReward.value,
+            config.maxReward,
+            minReward
+        );
+
+
+    if (
+        maxReward <
+        minReward
+    ) {
+
+        maxReward =
+            minReward;
+    }
+
+
+    config.maxEnergy =
+        maxEnergy;
+
+
+    config.secPerEnergy =
+        secPerEnergy;
+
+
+    config.minReward =
+        minReward;
+
+
+    config.maxReward =
+        maxReward;
+
+
+    /*
+     * Never allow current energy above the new max.
+     */
+
+    state.currentEnergy =
+        clamp(
+            oldCurrentEnergy,
+            0,
+            config.maxEnergy
+        );
+
+
+    /*
+     * If currently tracking, rebuild the timer
+     * from the observed current energy.
+     */
+
+    if (
+        state.trackingStartedAt !== null &&
+        !state.waitingForCheck &&
+        !state.waitingForNewEnergy
+    ) {
+
+        state.startingEnergy =
+            state.currentEnergy;
+
+
+        state.trackingStartedAt =
+            now();
+
+
+        const remaining =
+            config.maxEnergy -
+            state.currentEnergy;
+
+
+        state.fullAt =
+            now() +
+            remaining *
+            config.secPerEnergy *
+            1000;
+    }
+
+
+    /*
+     * If full, keep it full.
+     */
+
+    if (
+        state.waitingForCheck
+    ) {
+
+        state.currentEnergy =
+            config.maxEnergy;
+
+        state.fullAt =
+            now();
+    }
+
+
+    saveState();
+
+    renderAll();
+}
+
+
+function toggleTestMode() {
+
+    state.testMode =
+        !state.testMode;
+
+
+    if (
+        state.testMode
+    ) {
+
+        config.maxEnergy =
+            TEST_CONFIG.maxEnergy;
+
+
+        config.secPerEnergy =
+            TEST_CONFIG.secPerEnergy;
+
+    } else {
+
+        config = {
+            ...DEFAULT_CONFIG
+        };
+    }
+
+
+    /*
+     * Test mode resets the ACTIVE timer.
+     * History remains intact.
+     */
+
+    state.currentEnergy =
+        0;
+
+    state.startingEnergy =
+        0;
+
+    state.trackingStartedAt =
+        null;
+
+    state.fullAt =
+        null;
+
+    state.waitingForCheck =
+        false;
+
+    state.waitingForNewEnergy =
+        false;
+
+    state.notificationShownForCycle =
+        false;
+
+
+    saveState();
+
+    renderAll();
+}
+
+
+/* =================================================================
+   NOTIFICATIONS
+   ================================================================= */
+
 function updateNotificationUI() {
 
     if (
@@ -3359,18 +3897,15 @@ function updateNotificationUI() {
             true;
 
         dom.notificationStatus.textContent =
-            "This browser does not support notifications.";
+            "Notifications are not supported.";
 
         return;
     }
 
 
-    const permission =
-        Notification.permission;
-
-
     if (
-        permission === "granted"
+        Notification.permission ===
+        "granted"
     ) {
 
         state.notificationsEnabled =
@@ -3393,7 +3928,8 @@ function updateNotificationUI() {
 
 
     if (
-        permission === "denied"
+        Notification.permission ===
+        "denied"
     ) {
 
         state.notificationsEnabled =
@@ -3432,222 +3968,12 @@ function updateNotificationUI() {
 }
 
 
-function applySettings() {
-
-    recomputeState();
-
-
-    let maxEnergy =
-        sanitizeInteger(
-            dom.settingMaxEnergy.value,
-            config.maxEnergy,
-            1,
-            9999
-        );
-
-
-    let secPerEnergy =
-        sanitizeInteger(
-            dom.settingSecondsPerEnergy.value,
-            config.secPerEnergy,
-            1,
-            9999
-        );
-
-
-    let vaultEnergyCost =
-        sanitizeInteger(
-            dom.settingVaultEnergyCost.value,
-            config.vaultEnergyCost,
-            1,
-            9999
-        );
-
-
-    let minReward =
-        sanitizeNumber(
-            dom.settingMinReward.value,
-            config.minReward,
-            0
-        );
-
-
-    let maxReward =
-        sanitizeNumber(
-            dom.settingMaxReward.value,
-            config.maxReward,
-            minReward
-        );
-
-
-    if (
-        maxReward < minReward
-    ) {
-
-        maxReward =
-            minReward;
-    }
-
-
-    const currentEnergy =
-        clamp(
-            state.currentEnergy,
-            0,
-            maxEnergy
-        );
-
-
-    config.maxEnergy =
-        maxEnergy;
-
-    config.secPerEnergy =
-        secPerEnergy;
-
-    config.vaultEnergyCost =
-        vaultEnergyCost;
-
-    config.minReward =
-        minReward;
-
-    config.maxReward =
-        maxReward;
-
-
-    state.currentEnergy =
-        currentEnergy;
-
-
-    if (
-        state.waitingForCheck
-    ) {
-
-        state.currentEnergy =
-            config.maxEnergy;
-
-        state.startingEnergy =
-            config.maxEnergy;
-
-        state.trackingStartedAt =
-            now();
-
-        state.fullAt =
-            now();
-    }
-
-    else if (
-        state.fullAt !== null &&
-        state.trackingStartedAt !== null
-    ) {
-
-        /*
-         * Preserve current displayed energy,
-         * then rebuild the remaining recharge
-         * using the new settings.
-         */
-
-        state.startingEnergy =
-            state.currentEnergy;
-
-        state.trackingStartedAt =
-            now();
-
-        const remaining =
-            config.maxEnergy -
-            state.currentEnergy;
-
-
-        state.fullAt =
-            now() +
-            (
-                remaining *
-                config.secPerEnergy *
-                1000
-            );
-    }
-
-
-    saveState();
-
-    renderAll();
-}
-
-
-function toggleTestMode() {
-
-    state.testMode =
-        !state.testMode;
-
-
-    /*
-     * Test mode deliberately resets the active
-     * recharge so that a normal 250-energy timer
-     * cannot accidentally turn into a 10-energy
-     * timer with inconsistent timestamps.
-     */
-
-    if (state.testMode) {
-
-        config.maxEnergy =
-            TEST_CONFIG.maxEnergy;
-
-        config.secPerEnergy =
-            TEST_CONFIG.secPerEnergy;
-
-    } else {
-
-        config.maxEnergy =
-            DEFAULT_CONFIG.maxEnergy;
-
-        config.secPerEnergy =
-            DEFAULT_CONFIG.secPerEnergy;
-
-        config.vaultEnergyCost =
-            DEFAULT_CONFIG.vaultEnergyCost;
-
-        config.minReward =
-            DEFAULT_CONFIG.minReward;
-
-        config.maxReward =
-            DEFAULT_CONFIG.maxReward;
-    }
-
-
-    state.currentEnergy =
-        0;
-
-    state.startingEnergy =
-        0;
-
-    state.trackingStartedAt =
-        null;
-
-    state.fullAt =
-        null;
-
-    state.waitingForCheck =
-        false;
-
-    state.notificationShownForCycle =
-        false;
-
-
-    saveState();
-
-    updateSettingsUI();
-
-    renderAll();
-}
-
-
-/* =====================================================================
-   NOTIFICATIONS
-   ===================================================================== */
-
 async function requestNotificationPermission() {
 
     if (
         !("Notification" in window)
     ) {
+
         return;
     }
 
@@ -3659,24 +3985,19 @@ async function requestNotificationPermission() {
                 .requestPermission();
 
 
-        if (
+        state.notificationsEnabled =
             permission ===
-            "granted"
-        ) {
+            "granted";
 
-            state.notificationsEnabled =
-                true;
 
-            saveState();
-        }
-
+        saveState();
 
         updateNotificationUI();
 
     } catch (error) {
 
         console.error(
-            "Notification permission failed:",
+            "Notification permission error:",
             error
         );
     }
@@ -3688,6 +4009,7 @@ function maybeSendNotification() {
     if (
         !state.notificationsEnabled
     ) {
+
         return;
     }
 
@@ -3695,6 +4017,7 @@ function maybeSendNotification() {
     if (
         !("Notification" in window)
     ) {
+
         return;
     }
 
@@ -3703,6 +4026,7 @@ function maybeSendNotification() {
         Notification.permission !==
         "granted"
     ) {
+
         return;
     }
 
@@ -3722,29 +4046,32 @@ function maybeSendNotification() {
     } catch (error) {
 
         console.error(
-            "Could not show notification:",
+            "Could not send notification:",
             error
         );
     }
 }
 
 
-/* =====================================================================
+/* =================================================================
    EXPORT / IMPORT
-   ===================================================================== */
+   ================================================================= */
 
 function exportData() {
 
     const payload = {
 
         exportedAt:
-            new Date().toISOString(),
+            new Date()
+                .toISOString(),
 
         version:
             APP_VERSION,
 
         config:
-            { ...config },
+            {
+                ...config
+            },
 
         tracker: {
 
@@ -3762,6 +4089,9 @@ function exportData() {
 
             waitingForCheck:
                 state.waitingForCheck,
+
+            waitingForNewEnergy:
+                state.waitingForNewEnergy,
 
             testMode:
                 state.testMode
@@ -3794,16 +4124,17 @@ function exportData() {
         );
 
 
-    const anchor =
+    const link =
         document.createElement(
             "a"
         );
 
 
-    anchor.href =
+    link.href =
         url;
 
-    anchor.download =
+
+    link.download =
         `vault-energy-backup-${
             new Date()
                 .toISOString()
@@ -3812,13 +4143,13 @@ function exportData() {
 
 
     document.body.appendChild(
-        anchor
+        link
     );
 
 
-    anchor.click();
+    link.click();
 
-    anchor.remove();
+    link.remove();
 
 
     URL.revokeObjectURL(
@@ -3853,7 +4184,9 @@ async function handleImportFile(
 
 
         const payload =
-            JSON.parse(text);
+            JSON.parse(
+                text
+            );
 
 
         if (
@@ -3863,7 +4196,7 @@ async function handleImportFile(
         ) {
 
             throw new Error(
-                "Invalid file."
+                "Invalid backup."
             );
         }
 
@@ -3880,6 +4213,7 @@ async function handleImportFile(
                     9999
                 );
 
+
             config.secPerEnergy =
                 sanitizeInteger(
                     payload.config.secPerEnergy,
@@ -3888,13 +4222,6 @@ async function handleImportFile(
                     9999
                 );
 
-            config.vaultEnergyCost =
-                sanitizeInteger(
-                    payload.config.vaultEnergyCost,
-                    DEFAULT_CONFIG.vaultEnergyCost,
-                    1,
-                    9999
-                );
 
             config.minReward =
                 sanitizeNumber(
@@ -3902,6 +4229,7 @@ async function handleImportFile(
                     DEFAULT_CONFIG.minReward,
                     0
                 );
+
 
             config.maxReward =
                 sanitizeNumber(
@@ -3921,26 +4249,18 @@ async function handleImportFile(
 
 
             state.currentEnergy =
-                clamp(
-                    sanitizeInteger(
-                        tracker.currentEnergy,
-                        0,
-                        0,
-                        config.maxEnergy
-                    ),
+                sanitizeInteger(
+                    tracker.currentEnergy,
+                    0,
                     0,
                     config.maxEnergy
                 );
 
 
             state.startingEnergy =
-                clamp(
-                    sanitizeInteger(
-                        tracker.startingEnergy,
-                        state.currentEnergy,
-                        0,
-                        config.maxEnergy
-                    ),
+                sanitizeInteger(
+                    tracker.startingEnergy,
+                    state.currentEnergy,
                     0,
                     config.maxEnergy
                 );
@@ -3965,6 +4285,12 @@ async function handleImportFile(
             state.waitingForCheck =
                 Boolean(
                     tracker.waitingForCheck
+                );
+
+
+            state.waitingForNewEnergy =
+                Boolean(
+                    tracker.waitingForNewEnergy
                 );
 
 
@@ -4014,7 +4340,7 @@ async function handleImportFile(
 
 
         alert(
-            "Could not import this file."
+            "Could not import this backup file."
         );
 
     } finally {
@@ -4025,9 +4351,9 @@ async function handleImportFile(
 }
 
 
-/* =====================================================================
-   CONFIRMATION MODAL
-   ===================================================================== */
+/* =================================================================
+   CONFIRMATION
+   ================================================================= */
 
 function openConfirmation(
     message,
@@ -4066,13 +4392,15 @@ function closeConfirmation() {
 }
 
 
-/* =====================================================================
-   DATA OPERATIONS
-   ===================================================================== */
+/* =================================================================
+   DATA MANAGEMENT
+   ================================================================= */
 
 function clearHistory() {
 
-    state.history = [];
+    state.history =
+        [];
+
 
     saveState();
 
@@ -4107,6 +4435,9 @@ function resetApplication() {
     state.waitingForCheck =
         false;
 
+    state.waitingForNewEnergy =
+        false;
+
     state.history =
         [];
 
@@ -4135,6 +4466,22 @@ function resetApplication() {
         false;
 
 
+    dom.energyInput.value =
+        "";
+
+    dom.energyInput.placeholder =
+        "Enter current energy";
+
+
+    dom.latestResultCard.hidden =
+        true;
+
+
+    closeConfirmation();
+
+    closeCheckResultModal();
+
+
     renderAll();
 
     navigateTo(
@@ -4143,41 +4490,9 @@ function resetApplication() {
 }
 
 
-/* =====================================================================
-   MODAL / PAGE CLICK HANDLING
-   ===================================================================== */
-
-function handleModalBackdropClick(
-    event
-) {
-
-    if (
-        event.target.classList.contains(
-            "modal__backdrop"
-        )
-    ) {
-
-        if (
-            state.currentModal ===
-            "check-result"
-        ) {
-
-            closeCheckResultModal();
-
-        } else if (
-            state.currentModal ===
-            "confirmation"
-        ) {
-
-            closeConfirmation();
-        }
-    }
-}
-
-
-/* =====================================================================
+/* =================================================================
    EVENT LISTENERS
-   ===================================================================== */
+   ================================================================= */
 
 
 /* -------------------------------------------------------------
@@ -4201,7 +4516,7 @@ dom.navButtons.forEach(
 
 
 /* -------------------------------------------------------------
-   Header settings button
+   Settings
    ------------------------------------------------------------- */
 
 dom.settingsButton.addEventListener(
@@ -4216,87 +4531,14 @@ dom.settingsButton.addEventListener(
 
 
 /* -------------------------------------------------------------
-   Start tracking
+   Start / next cycle
    ------------------------------------------------------------- */
 
 dom.startTrackingButton.addEventListener(
     "click",
-    () => {
-
-        const raw =
-            dom.energyInput.value
-                .trim();
-
-
-        if (raw === "") {
-
-            dom.energyInputError.hidden =
-                false;
-
-            dom.energyInputError.textContent =
-                "Enter your current energy.";
-
-            dom.energyInput.focus();
-
-            return;
-        }
-
-
-        const value =
-            Number(raw);
-
-
-        if (
-            !Number.isInteger(value)
-        ) {
-
-            dom.energyInputError.hidden =
-                false;
-
-            dom.energyInputError.textContent =
-                "Energy must be a whole number.";
-
-            dom.energyInput.focus();
-
-            return;
-        }
-
-
-        if (
-            value < 0 ||
-            value > config.maxEnergy
-        ) {
-
-            dom.energyInputError.hidden =
-                false;
-
-            dom.energyInputError.textContent =
-                `Enter a value from 0 to ${config.maxEnergy}.`;
-
-            dom.energyInput.focus();
-
-            return;
-        }
-
-
-        dom.energyInputError.hidden =
-            true;
-
-
-        startTracking(
-            value
-        );
-
-
-        dom.energyInput.value =
-            "";
-    }
+    handleEnergyInputSubmit
 );
 
-
-/* -------------------------------------------------------------
-   Enter key
-   ------------------------------------------------------------- */
 
 dom.energyInput.addEventListener(
     "keydown",
@@ -4309,15 +4551,11 @@ dom.energyInput.addEventListener(
 
             event.preventDefault();
 
-            dom.startTrackingButton.click();
+            handleEnergyInputSubmit();
         }
     }
 );
 
-
-/* -------------------------------------------------------------
-   Input validation
-   ------------------------------------------------------------- */
 
 dom.energyInput.addEventListener(
     "input",
@@ -4330,7 +4568,7 @@ dom.energyInput.addEventListener(
 
 
 /* -------------------------------------------------------------
-   Check vault
+   Vault checking
    ------------------------------------------------------------- */
 
 dom.checkVaultButton.addEventListener(
@@ -4374,55 +4612,7 @@ dom.saveCheckResultButton.addEventListener(
 
 
 /* -------------------------------------------------------------
-   Confirmation modal
-   ------------------------------------------------------------- */
-
-dom.confirmationModal
-    .querySelector(".modal__backdrop")
-    ?.addEventListener(
-        "click",
-        handleModalBackdropClick
-    );
-
-
-dom.checkResultModal
-    .querySelector(".modal__backdrop")
-    ?.addEventListener(
-        "click",
-        handleModalBackdropClick
-    );
-
-
-dom.cancelConfirmationButton.addEventListener(
-    "click",
-    closeConfirmation
-);
-
-
-dom.confirmActionButton.addEventListener(
-    "click",
-    () => {
-
-        const action =
-            state.pendingConfirmationAction;
-
-
-        closeConfirmation();
-
-
-        if (
-            typeof action ===
-            "function"
-        ) {
-
-            action();
-        }
-    }
-);
-
-
-/* -------------------------------------------------------------
-   Analytics period
+   Analytics
    ------------------------------------------------------------- */
 
 dom.periodButtons.forEach(
@@ -4435,6 +4625,8 @@ dom.periodButtons.forEach(
                 state.analyticsPeriod =
                     button.dataset.period;
 
+
+                saveState();
 
                 renderAnalytics();
             }
@@ -4455,6 +4647,8 @@ dom.historyDateFilter.addEventListener(
             event.target.value;
 
 
+        saveState();
+
         renderHistory();
     }
 );
@@ -4467,6 +4661,8 @@ dom.historyStatusFilter.addEventListener(
         state.historyStatusFilter =
             event.target.value;
 
+
+        saveState();
 
         renderHistory();
     }
@@ -4502,12 +4698,6 @@ dom.settingSecondsPerEnergy.addEventListener(
 );
 
 
-dom.settingVaultEnergyCost.addEventListener(
-    "change",
-    applySettings
-);
-
-
 dom.settingMinReward.addEventListener(
     "change",
     applySettings
@@ -4524,11 +4714,10 @@ dom.settingMaxReward.addEventListener(
    Notifications
    ------------------------------------------------------------- */
 
-dom.notificationPermissionButton
-    .addEventListener(
-        "click",
-        requestNotificationPermission
-    );
+dom.notificationPermissionButton.addEventListener(
+    "click",
+    requestNotificationPermission
+);
 
 
 /* -------------------------------------------------------------
@@ -4542,7 +4731,7 @@ dom.testModeButton.addEventListener(
         openConfirmation(
             state.testMode
                 ? "Turn test mode off?"
-                : "Turn test mode on? The current recharge will be reset.",
+                : "Turn test mode on? The active recharge will be reset.",
             toggleTestMode
         );
     }
@@ -4550,7 +4739,7 @@ dom.testModeButton.addEventListener(
 
 
 /* -------------------------------------------------------------
-   Export
+   Data
    ------------------------------------------------------------- */
 
 dom.exportDataButton.addEventListener(
@@ -4558,10 +4747,6 @@ dom.exportDataButton.addEventListener(
     exportData
 );
 
-
-/* -------------------------------------------------------------
-   Import
-   ------------------------------------------------------------- */
 
 dom.importDataButton.addEventListener(
     "click",
@@ -4574,10 +4759,6 @@ dom.importFileInput.addEventListener(
     handleImportFile
 );
 
-
-/* -------------------------------------------------------------
-   Clear history
-   ------------------------------------------------------------- */
 
 dom.clearHistoryButton.addEventListener(
     "click",
@@ -4599,16 +4780,12 @@ dom.clearHistoryButton.addEventListener(
 );
 
 
-/* -------------------------------------------------------------
-   Reset everything
-   ------------------------------------------------------------- */
-
 dom.resetApplicationButton.addEventListener(
     "click",
     () => {
 
         openConfirmation(
-            "Reset the entire application and delete all saved data?",
+            "Reset the entire tracker and delete all saved data?",
             resetApplication
         );
     }
@@ -4616,7 +4793,63 @@ dom.resetApplicationButton.addEventListener(
 
 
 /* -------------------------------------------------------------
-   Escape closes modals
+   Confirmation modal
+   ------------------------------------------------------------- */
+
+dom.cancelConfirmationButton.addEventListener(
+    "click",
+    closeConfirmation
+);
+
+
+dom.confirmActionButton.addEventListener(
+    "click",
+    () => {
+
+        const action =
+            state.pendingConfirmationAction;
+
+
+        closeConfirmation();
+
+
+        if (
+            typeof action ===
+            "function"
+        ) {
+
+            action();
+        }
+    }
+);
+
+
+/* -------------------------------------------------------------
+   Modal backdrop
+   ------------------------------------------------------------- */
+
+dom.checkResultModal
+    .querySelector(
+        ".modal__backdrop"
+    )
+    ?.addEventListener(
+        "click",
+        closeCheckResultModal
+    );
+
+
+dom.confirmationModal
+    .querySelector(
+        ".modal__backdrop"
+    )
+    ?.addEventListener(
+        "click",
+        closeConfirmation
+    );
+
+
+/* -------------------------------------------------------------
+   Escape
    ------------------------------------------------------------- */
 
 document.addEventListener(
@@ -4624,50 +4857,35 @@ document.addEventListener(
     event => {
 
         if (
-            event.key ===
+            event.key !==
             "Escape"
         ) {
 
-            if (
-                state.currentModal ===
-                "check-result"
-            ) {
+            return;
+        }
 
-                closeCheckResultModal();
 
-            } else if (
-                state.currentModal ===
-                "confirmation"
-            ) {
+        if (
+            state.currentModal ===
+            "check-result"
+        ) {
 
-                closeConfirmation();
-            }
+            closeCheckResultModal();
+
+        } else if (
+            state.currentModal ===
+            "confirmation"
+        ) {
+
+            closeConfirmation();
         }
     }
 );
 
 
-/* =====================================================================
-   RENDER ALL
-   ===================================================================== */
-
-function renderAll() {
-
-    renderDashboard();
-
-    renderAnalytics();
-
-    renderHistory();
-
-    updateSettingsUI();
-
-    updateCheckModalPreview();
-}
-
-
-/* =====================================================================
+/* =================================================================
    TIMER
-   ===================================================================== */
+   ================================================================= */
 
 let timer = null;
 
@@ -4676,7 +4894,9 @@ let lastSecond = null;
 
 function startTimer() {
 
-    if (timer !== null) {
+    if (
+        timer !== null
+    ) {
 
         clearInterval(
             timer
@@ -4688,7 +4908,7 @@ function startTimer() {
         setInterval(
             () => {
 
-                const second =
+                const currentSecond =
                     Math.floor(
                         Date.now() /
                         1000
@@ -4696,15 +4916,16 @@ function startTimer() {
 
 
                 if (
-                    second ===
+                    currentSecond ===
                     lastSecond
                 ) {
+
                     return;
                 }
 
 
                 lastSecond =
-                    second;
+                    currentSecond;
 
 
                 const wasWaiting =
@@ -4713,11 +4934,6 @@ function startTimer() {
 
                 recomputeState();
 
-
-                /*
-                 * If a recharge became full during this tick,
-                 * save the transition immediately.
-                 */
 
                 if (
                     !wasWaiting &&
@@ -4730,10 +4946,6 @@ function startTimer() {
 
                 renderDashboard();
 
-
-                /*
-                 * Only rerender the other pages when they are visible.
-                 */
 
                 if (
                     state.currentPage ===
@@ -4758,9 +4970,9 @@ function startTimer() {
 }
 
 
-/* =====================================================================
-   VISIBILITY / PAGE LIFECYCLE
-   ===================================================================== */
+/* =================================================================
+   PAGE VISIBILITY
+   ================================================================= */
 
 document.addEventListener(
     "visibilitychange",
@@ -4789,29 +5001,25 @@ window.addEventListener(
 );
 
 
-/* =====================================================================
+/* =================================================================
    INITIALIZATION
-   ===================================================================== */
+   ================================================================= */
 
 function initialize() {
 
     loadState();
 
 
-    /*
-     * Recover state if the app was closed
-     * while the timer was running.
-     */
-
     recomputeState();
 
 
     /*
-     * If energy became full while the app was
-     * closed, the FULL state is restored.
+     * If the app was closed while charging and the
+     * timestamp has passed, restore FULL.
      */
 
     if (
+        !state.waitingForNewEnergy &&
         state.fullAt !== null &&
         now() >= state.fullAt
     ) {
@@ -4825,7 +5033,7 @@ function initialize() {
 
 
     /*
-     * Recover impossible combinations.
+     * Repair impossible state.
      */
 
     if (
@@ -4839,17 +5047,12 @@ function initialize() {
 
 
     if (
-        state.fullAt !== null &&
-        state.trackingStartedAt === null
+        state.waitingForNewEnergy
     ) {
 
-        state.trackingStartedAt =
-            now();
+        state.currentEnergy =
+            0;
     }
-
-
-    state.initialized =
-        true;
 
 
     saveState();
@@ -4879,16 +5082,16 @@ function initialize() {
 }
 
 
-/* =====================================================================
-   START APPLICATION
-   ===================================================================== */
+/* =================================================================
+   START
+   ================================================================= */
 
 initialize();
 
 
-/* =====================================================================
-   OPTIONAL DEBUG API
-   ===================================================================== */
+/* =================================================================
+   DEBUG API
+   ================================================================= */
 
 window.VaultTracker = {
 
@@ -4905,6 +5108,10 @@ window.VaultTracker = {
     saveState,
 
     openCheckResultModal,
+
+    saveVaultCheck,
+
+    prepareForNextEnergyEntry,
 
     navigateTo
 };
