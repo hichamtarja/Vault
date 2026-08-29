@@ -1,3178 +1,2365 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<head>
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
-        content="width=device-width, initial-scale=1, viewport-fit=cover"
+        content="width=device-width, initial-scale=1.0"
     >
 
-    <meta name="theme-color" content="#0b0e14">
+    <meta
+        name="theme-color"
+        content="#0b0e14"
+    >
+
+    <meta
+        name="description"
+        content="Track vault energy, recharge cycles, earnings, overdue checks, and performance."
+    >
+
+    <link rel="stylesheet" href="style.css">
 
     <title>Vault Energy Tracker</title>
-
-    <style>
-        /* ============================================================
-           RESET
-           ============================================================ */
-
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-        }
-
-        html {
-            font-size: 16px;
-            -webkit-text-size-adjust: 100%;
-            color-scheme: dark;
-        }
-
-        body {
-            margin: 0;
-            min-width: 320px;
-            min-height: 100vh;
-            min-height: 100dvh;
-
-            font-family:
-                "Segoe UI",
-                system-ui,
-                -apple-system,
-                BlinkMacSystemFont,
-                sans-serif;
-
-            background: var(--bg);
-            color: var(--text);
-
-            -webkit-font-smoothing: antialiased;
-            text-rendering: optimizeLegibility;
-        }
-
-        button,
-        input {
-            font: inherit;
-        }
-
-        button {
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        /* ============================================================
-           THEME
-           ============================================================ */
-
-        :root {
-            --bg: #0b0e14;
-            --bg-soft: #10151e;
-            --surface: #151c27;
-            --surface-2: #1a2330;
-            --input: #0d131c;
-
-            --border: #29384d;
-            --border-soft: rgba(255,255,255,0.06);
-
-            --text: #edf2f8;
-            --text-secondary: #91a0b5;
-            --text-muted: #60718a;
-
-            --accent: #f0b34b;
-            --accent-dark: #c58e31;
-            --accent-soft: rgba(240,179,75,0.13);
-
-            --success: #4cd9a0;
-            --success-dark: #2b946d;
-            --success-soft: rgba(76,217,160,0.13);
-
-            --danger: #ed6666;
-            --danger-dark: #a94646;
-            --danger-soft: rgba(237,102,102,0.12);
-
-            --info: #6ca9ff;
-            --info-soft: rgba(108,169,255,0.12);
-
-            --radius: 16px;
-            --radius-sm: 10px;
-
-            --shadow:
-                0 12px 40px rgba(0,0,0,0.42);
-
-            --transition:
-                180ms ease;
-        }
-
-        /* ============================================================
-           APP
-           ============================================================ */
-
-        body {
-            display: flex;
-            justify-content: center;
-            padding:
-                max(14px, env(safe-area-inset-top))
-                max(10px, env(safe-area-inset-right))
-                calc(36px + env(safe-area-inset-bottom))
-                max(10px, env(safe-area-inset-left));
-        }
-
-        .app {
-            width: 100%;
-            max-width: 460px;
-        }
-
-        /* ============================================================
-           HEADER
-           ============================================================ */
-
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            padding: 8px 2px 16px;
-            margin-bottom: 16px;
-
-            border-bottom: 1px solid var(--border);
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-
-            color: var(--accent);
-
-            font-size: 1.05rem;
-            font-weight: 800;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-        }
-
-        .brand-icon {
-            font-size: 1.2rem;
-        }
-
-        .icon-button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-
-            width: 42px;
-            height: 42px;
-
-            border: 1px solid transparent;
-            border-radius: var(--radius-sm);
-
-            background: transparent;
-            color: var(--text-secondary);
-
-            cursor: pointer;
-            transition:
-                background var(--transition),
-                color var(--transition),
-                border-color var(--transition),
-                transform var(--transition);
-        }
-
-        .icon-button:hover {
-            background: var(--surface);
-            color: var(--text);
-            border-color: var(--border);
-        }
-
-        .icon-button:active {
-            transform: scale(0.95);
-        }
-
-        /* ============================================================
-           CARD
-           ============================================================ */
-
-        .card {
-            margin-bottom: 14px;
-            padding: 20px 18px;
-
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-
-            background: var(--surface);
-            box-shadow: var(--shadow);
-        }
-
-        .card-title {
-            margin-bottom: 12px;
-
-            color: var(--text-muted);
-
-            font-size: 0.7rem;
-            font-weight: 800;
-            letter-spacing: 0.09em;
-            text-transform: uppercase;
-        }
-
-        /* ============================================================
-           MAIN TRACKER
-           ============================================================ */
-
-        .tracker-card {
-            position: relative;
-            overflow: hidden;
-
-            transition:
-                border-color var(--transition),
-                box-shadow var(--transition);
-        }
-
-        .tracker-card.full {
-            border-color: var(--success);
-            box-shadow:
-                0 0 34px rgba(76,217,160,0.10),
-                var(--shadow);
-        }
-
-        .tracker-card.full::before {
-            content: "";
-
-            position: absolute;
-            inset: 0;
-
-            background:
-                radial-gradient(
-                    circle at 50% 0%,
-                    rgba(76,217,160,0.10),
-                    transparent 60%
-                );
-
-            pointer-events: none;
-        }
-
-        /* ============================================================
-           ENERGY
-           ============================================================ */
-
-        .energy-section {
-            text-align: center;
-        }
-
-        .energy-value {
-            display: flex;
-            align-items: baseline;
-            justify-content: center;
-            gap: 6px;
-
-            line-height: 1;
-        }
-
-        .energy-current {
-            font-size: clamp(3rem, 13vw, 4rem);
-            font-weight: 800;
-            font-variant-numeric: tabular-nums;
-            letter-spacing: -0.03em;
-        }
-
-        .energy-max {
-            color: var(--text-muted);
-            font-size: 1.4rem;
-            font-weight: 500;
-        }
-
-        .status {
-            min-height: 24px;
-            margin-top: 10px;
-
-            font-size: 0.88rem;
-            font-weight: 650;
-        }
-
-        .status-idle {
-            color: var(--text-muted);
-        }
-
-        .status-counting {
-            color: var(--accent);
-        }
-
-        .status-full {
-            color: var(--success);
-        }
-
-        .status-overdue {
-            color: var(--danger);
-        }
-
-        /* ============================================================
-           PROGRESS
-           ============================================================ */
-
-        .progress-container {
-            margin-top: 18px;
-        }
-
-        .progress-track {
-            width: 100%;
-            height: 8px;
-
-            overflow: hidden;
-
-            border-radius: 999px;
-            background: var(--input);
-            border: 1px solid var(--border);
-        }
-
-        .progress-bar {
-            width: 0%;
-            height: 100%;
-
-            border-radius: inherit;
-
-            background:
-                linear-gradient(
-                    90deg,
-                    var(--accent-dark),
-                    var(--accent)
-                );
-
-            transition: width 350ms linear;
-        }
-
-        .tracker-card.full .progress-bar {
-            background:
-                linear-gradient(
-                    90deg,
-                    var(--success-dark),
-                    var(--success)
-                );
-        }
-
-        .progress-label {
-            display: flex;
-            justify-content: space-between;
-
-            margin-top: 6px;
-
-            color: var(--text-muted);
-            font-size: 0.68rem;
-        }
-
-        /* ============================================================
-           COUNTDOWN
-           ============================================================ */
-
-        .countdown {
-            margin-top: 24px;
-            text-align: center;
-        }
-
-        .countdown-label {
-            color: var(--text-muted);
-
-            font-size: 0.66rem;
-            font-weight: 800;
-            letter-spacing: 0.09em;
-            text-transform: uppercase;
-        }
-
-        .countdown-value {
-            margin-top: 5px;
-
-            color: var(--text);
-
-            font-family:
-                "JetBrains Mono",
-                "SFMono-Regular",
-                "Cascadia Mono",
-                "Fira Code",
-                monospace;
-
-            font-size: clamp(2.15rem, 10vw, 3rem);
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-            letter-spacing: 0.03em;
-        }
-
-        .full-at {
-            margin-top: 6px;
-
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-        }
-
-        .full-at strong {
-            color: var(--text);
-        }
-
-        /* ============================================================
-           INPUT
-           ============================================================ */
-
-        .input-section {
-            margin-top: 24px;
-        }
-
-        .input-label {
-            display: block;
-            margin-bottom: 7px;
-
-            color: var(--text-secondary);
-            font-size: 0.78rem;
-            font-weight: 600;
-        }
-
-        .input-row {
-            display: flex;
-            gap: 9px;
-        }
-
-        .energy-input-wrapper {
-            position: relative;
-            flex: 1;
-        }
-
-        .energy-input {
-            width: 100%;
-            height: 50px;
-
-            padding:
-                0 62px 0 14px;
-
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-
-            outline: none;
-
-            background: var(--input);
-            color: var(--text);
-
-            font-size: 1rem;
-            font-weight: 600;
-
-            transition:
-                border-color var(--transition),
-                box-shadow var(--transition);
-        }
-
-        .energy-input:focus {
-            border-color: var(--accent);
-            box-shadow:
-                0 0 0 3px var(--accent-soft);
-        }
-
-        .energy-input.invalid {
-            border-color: var(--danger);
-            box-shadow:
-                0 0 0 3px var(--danger-soft);
-        }
-
-        .energy-input::placeholder {
-            color: var(--text-muted);
-            font-weight: 400;
-        }
-
-        .energy-input-suffix {
-            position: absolute;
-            top: 50%;
-            right: 14px;
-
-            transform: translateY(-50%);
-
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            pointer-events: none;
-        }
-
-        /* ============================================================
-           BUTTONS
-           ============================================================ */
-
-        .button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 7px;
-
-            min-height: 50px;
-
-            padding: 0 20px;
-
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-
-            background: var(--input);
-            color: var(--text-secondary);
-
-            font-size: 0.92rem;
-            font-weight: 750;
-
-            cursor: pointer;
-
-            transition:
-                background var(--transition),
-                color var(--transition),
-                border-color var(--transition),
-                transform var(--transition),
-                opacity var(--transition);
-        }
-
-        .button:hover:not(:disabled) {
-            transform: translateY(-1px);
-        }
-
-        .button:active:not(:disabled) {
-            transform: scale(0.98);
-        }
-
-        .button:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .button-primary {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: #0b0e14;
-        }
-
-        .button-primary:hover:not(:disabled) {
-            background: var(--accent-dark);
-            border-color: var(--accent-dark);
-        }
-
-        .button-success {
-            background: var(--success);
-            border-color: var(--success);
-            color: #08130f;
-        }
-
-        .button-success:hover:not(:disabled) {
-            background: var(--success-dark);
-            border-color: var(--success-dark);
-            color: white;
-        }
-
-        .button-danger {
-            background: var(--danger);
-            border-color: var(--danger);
-            color: white;
-        }
-
-        .button-ghost {
-            background: transparent;
-        }
-
-        .button-full {
-            width: 100%;
-        }
-
-        .button-small {
-            min-height: 38px;
-            padding: 0 13px;
-            font-size: 0.78rem;
-        }
-
-        /* ============================================================
-           QUICK ACTION
-           ============================================================ */
-
-        .check-section {
-            margin-top: 12px;
-        }
-
-        /* ============================================================
-           STATS
-           ============================================================ */
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-        }
-
-        .stat {
-            min-width: 0;
-            padding: 12px 5px;
-
-            text-align: center;
-
-            background: var(--input);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-        }
-
-        .stat-value {
-            color: var(--text);
-
-            font-size: 1.35rem;
-            font-weight: 800;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .stat-label {
-            margin-top: 3px;
-
-            color: var(--text-muted);
-
-            font-size: 0.6rem;
-            font-weight: 800;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-        }
-
-        /* ============================================================
-           HISTORY
-           ============================================================ */
-
-        .history-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-        }
-
-        .history-count {
-            color: var(--text-muted);
-            font-size: 0.7rem;
-        }
-
-        .history-list {
-            max-height: 360px;
-            margin-top: 6px;
-
-            overflow-y: auto;
-
-            scrollbar-width: thin;
-            scrollbar-color: var(--border) transparent;
-        }
-
-        .history-list::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .history-list::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .history-list::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 99px;
-        }
-
-        .history-empty {
-            padding: 24px 4px 10px;
-
-            text-align: center;
-
-            color: var(--text-muted);
-            font-size: 0.82rem;
-        }
-
-        .history-item {
-            display: grid;
-            grid-template-columns: 60px 1fr auto;
-            align-items: center;
-            gap: 10px;
-
-            padding: 12px 0;
-
-            border-bottom: 1px solid var(--border-soft);
-        }
-
-        .history-item:last-child {
-            border-bottom: none;
-        }
-
-        .history-time {
-            color: var(--text);
-
-            font-size: 0.85rem;
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .history-details {
-            min-width: 0;
-
-            color: var(--text-secondary);
-            font-size: 0.76rem;
-        }
-
-        .history-date {
-            margin-bottom: 2px;
-            color: var(--text-muted);
-        }
-
-        .history-late {
-            color: var(--danger);
-        }
-
-        .history-on-time {
-            color: var(--success);
-        }
-
-        .history-icon {
-            font-size: 1rem;
-        }
-
-        /* ============================================================
-           SETTINGS
-           ============================================================ */
-
-        .settings {
-            display: none;
-        }
-
-        .settings.open {
-            display: block;
-        }
-
-        .settings-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            margin-bottom: 5px;
-        }
-
-        .settings-title {
-            color: var(--text);
-
-            font-size: 0.95rem;
-            font-weight: 750;
-        }
-
-        .settings-close {
-            width: 36px;
-            height: 36px;
-            padding: 0;
-        }
-
-        .setting {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-
-            padding: 12px 0;
-
-            border-bottom: 1px solid var(--border-soft);
-        }
-
-        .setting:last-child {
-            border-bottom: none;
-        }
-
-        .setting-info {
-            min-width: 0;
-            flex: 1;
-        }
-
-        .setting-name {
-            color: var(--text-secondary);
-            font-size: 0.83rem;
-        }
-
-        .setting-description {
-            margin-top: 2px;
-            color: var(--text-muted);
-            font-size: 0.68rem;
-            line-height: 1.35;
-        }
-
-        .setting-control {
-            flex-shrink: 0;
-        }
-
-        .setting-number {
-            width: 78px;
-            height: 38px;
-
-            padding: 0 8px;
-
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-
-            outline: none;
-
-            background: var(--input);
-            color: var(--text);
-
-            text-align: center;
-            font-size: 0.85rem;
-            font-weight: 650;
-        }
-
-        .setting-number:focus {
-            border-color: var(--accent);
-        }
-
-        .setting-number::-webkit-inner-spin-button,
-        .setting-number::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-
-        .setting-number {
-            -moz-appearance: textfield;
-        }
-
-        /* ============================================================
-           NOTICE
-           ============================================================ */
-
-        .notice {
-            margin-top: 12px;
-            padding: 10px 12px;
-
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-
-            background: var(--bg-soft);
-
-            color: var(--text-secondary);
-            font-size: 0.73rem;
-            line-height: 1.4;
-        }
-
-        .notice strong {
-            color: var(--text);
-        }
-
-        .notice.hidden {
-            display: none;
-        }
-
-        /* ============================================================
-           FOOTER
-           ============================================================ */
-
-        .footer {
-            padding: 8px 0;
-
-            text-align: center;
-
-            color: var(--text-muted);
-            font-size: 0.65rem;
-            letter-spacing: 0.04em;
-        }
-
-        /* ============================================================
-           ANIMATION
-           ============================================================ */
-
-        @keyframes full-pulse {
-            0%,
-            100% {
-                box-shadow:
-                    0 0 20px rgba(76,217,160,0.08),
-                    var(--shadow);
-            }
-
-            50% {
-                box-shadow:
-                    0 0 45px rgba(76,217,160,0.19),
-                    var(--shadow);
-            }
-        }
-
-        .tracker-card.full {
-            animation: full-pulse 2s ease-in-out infinite;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            *,
-            *::before,
-            *::after {
-                scroll-behavior: auto !important;
-                animation: none !important;
-                transition: none !important;
-            }
-        }
-
-        /* ============================================================
-           SMALL SCREENS
-           ============================================================ */
-
-        @media (max-width: 390px) {
-            body {
-                padding-left: 8px;
-                padding-right: 8px;
-            }
-
-            .card {
-                padding: 17px 14px;
-            }
-
-            .input-row {
-                flex-direction: column;
-            }
-
-            .input-row .button {
-                width: 100%;
-            }
-
-            .history-item {
-                grid-template-columns: 54px 1fr auto;
-                gap: 7px;
-            }
-
-            .history-details {
-                font-size: 0.71rem;
-            }
-        }
-    </style>
 </head>
 
 <body>
 
-    <main class="app">
+    <!-- ============================================================
+         APPLICATION
+         ============================================================ -->
 
-        <!-- =========================================================
+    <div id="app">
+
+        <!-- ========================================================
              HEADER
-             ========================================================== -->
+             ======================================================== -->
 
-        <header class="header">
-            <div class="brand">
-                <span class="brand-icon">🔋</span>
-                Vault Energy
+        <header class="app-header">
+
+            <div class="app-header__brand">
+
+                <div class="app-header__icon">
+                    🔋
+                </div>
+
+                <div>
+                    <h1 class="app-header__title">
+                        Vault Energy
+                    </h1>
+
+                    <p class="app-header__subtitle">
+                        Tracker
+                    </p>
+                </div>
+
             </div>
 
+
             <button
+                id="settingsButton"
                 class="icon-button"
-                id="settingsToggle"
                 type="button"
                 aria-label="Open settings"
                 title="Settings"
             >
                 ⚙️
             </button>
+
         </header>
 
 
-        <!-- =========================================================
-             SETTINGS
-             ========================================================== -->
+        <!-- ========================================================
+             NAVIGATION
+             ======================================================== -->
 
-        <section
-            class="card settings"
-            id="settingsPanel"
-            aria-label="Settings"
+        <nav
+            class="main-navigation"
+            aria-label="Main navigation"
         >
-            <div class="settings-header">
-                <div class="settings-title">⚙️ Settings</div>
+
+            <button
+                class="nav-button is-active"
+                type="button"
+                data-page="dashboard"
+            >
+                <span class="nav-button__icon">🏠</span>
+                <span class="nav-button__label">Dashboard</span>
+            </button>
+
+
+            <button
+                class="nav-button"
+                type="button"
+                data-page="analytics"
+            >
+                <span class="nav-button__icon">📊</span>
+                <span class="nav-button__label">Analytics</span>
+            </button>
+
+
+            <button
+                class="nav-button"
+                type="button"
+                data-page="history"
+            >
+                <span class="nav-button__icon">📜</span>
+                <span class="nav-button__label">History</span>
+            </button>
+
+        </nav>
+
+
+        <!-- ========================================================
+             MAIN CONTENT
+             ======================================================== -->
+
+        <main class="main-content">
+
+
+            <!-- ====================================================
+                 DASHBOARD
+                 ==================================================== -->
+
+            <section
+                id="page-dashboard"
+                class="page page-dashboard is-active"
+                data-page-content="dashboard"
+                aria-labelledby="dashboardTitle"
+            >
+
+                <div class="page-heading">
+
+                    <div>
+                        <h2 id="dashboardTitle">
+                            Dashboard
+                        </h2>
+
+                        <p>
+                            Your current vault status.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <!-- ================================================
+                     ENERGY CARD
+                     ================================================= -->
+
+                <section
+                    class="card energy-card"
+                    aria-labelledby="energyCardTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+                            <p class="card-eyebrow">
+                                ENERGY
+                            </p>
+
+                            <h3
+                                id="energyCardTitle"
+                                class="card-title"
+                            >
+                                Current Energy
+                            </h3>
+                        </div>
+
+                        <span
+                            id="energyStateBadge"
+                            class="status-badge status-badge--idle"
+                        >
+                            Idle
+                        </span>
+
+                    </div>
+
+
+                    <!-- Energy number -->
+
+                    <div class="energy-display">
+
+                        <div class="energy-display__numbers">
+
+                            <span
+                                id="dashboardCurrentEnergy"
+                                class="energy-display__current"
+                            >
+                                0
+                            </span>
+
+                            <span class="energy-display__separator">
+                                /
+                            </span>
+
+                            <span
+                                id="dashboardMaxEnergy"
+                                class="energy-display__maximum"
+                            >
+                                250
+                            </span>
+
+                        </div>
+
+
+                        <p
+                            id="energyStatusText"
+                            class="energy-display__status"
+                        >
+                            Enter your current energy to begin.
+                        </p>
+
+                    </div>
+
+
+                    <!-- Energy progress -->
+
+                    <div
+                        class="energy-progress"
+                        aria-label="Energy progress"
+                    >
+
+                        <div class="energy-progress__track">
+
+                            <div
+                                id="energyProgressBar"
+                                class="energy-progress__bar"
+                                style="width: 0%;"
+                            ></div>
+
+                        </div>
+
+
+                        <div class="energy-progress__labels">
+
+                            <span>
+                                0
+                            </span>
+
+                            <span
+                                id="energyProgressPercentage"
+                            >
+                                0%
+                            </span>
+
+                            <span
+                                id="energyProgressMax"
+                            >
+                                250
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- Countdown -->
+
+                    <div class="recharge-display">
+
+                        <p class="recharge-display__label">
+                            Time until full
+                        </p>
+
+                        <div
+                            id="countdown"
+                            class="recharge-display__time"
+                        >
+                            --:--:--
+                        </div>
+
+                        <p
+                            id="fullAt"
+                            class="recharge-display__full-at"
+                        >
+                            Full at —
+                        </p>
+
+                    </div>
+
+
+                    <!-- Current energy entry -->
+
+                    <div class="energy-input-section">
+
+                        <label
+                            for="energyInput"
+                            class="form-label"
+                        >
+                            Current energy
+                        </label>
+
+
+                        <div class="input-group">
+
+                            <div class="input-wrapper">
+
+                                <input
+                                    id="energyInput"
+                                    name="energy"
+                                    type="number"
+                                    inputmode="numeric"
+                                    min="0"
+                                    max="250"
+                                    step="1"
+                                    autocomplete="off"
+                                    placeholder="Enter current energy"
+                                >
+
+                                <span
+                                    id="energyInputSuffix"
+                                    class="input-suffix"
+                                >
+                                    / 250
+                                </span>
+
+                            </div>
+
+
+                            <button
+                                id="startTrackingButton"
+                                class="button button--primary"
+                                type="button"
+                            >
+                                Start
+                            </button>
+
+                        </div>
+
+
+                        <p
+                            id="energyInputError"
+                            class="form-error"
+                            hidden
+                        >
+                        </p>
+
+                    </div>
+
+
+                    <!-- Check action -->
+
+                    <div
+                        id="energyCheckSection"
+                        class="energy-check-section"
+                        hidden
+                    >
+
+                        <div class="full-energy-message">
+
+                            <span class="full-energy-message__icon">
+                                ⚡
+                            </span>
+
+                            <div>
+                                <strong>
+                                    Energy Full
+                                </strong>
+
+                                <p>
+                                    Check the game and record the vault.
+                                </p>
+                            </div>
+
+                        </div>
+
+
+                        <!-- Balance BEFORE -->
+
+                        <div class="balance-entry">
+
+                            <label
+                                for="balanceBeforeInput"
+                                class="form-label"
+                            >
+                                Balance before vault
+                            </label>
+
+                            <div class="money-input">
+
+                                <span class="money-input__currency">
+                                    $
+                                </span>
+
+                                <input
+                                    id="balanceBeforeInput"
+                                    name="balanceBefore"
+                                    type="number"
+                                    inputmode="decimal"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="Enter balance"
+                                    autocomplete="off"
+                                >
+
+                            </div>
+
+                        </div>
+
+
+                        <button
+                            id="checkVaultButton"
+                            class="button button--success button--full"
+                            type="button"
+                        >
+                            ✅ Vault Checked
+                        </button>
+
+                    </div>
+
+                </section>
+
+
+                <!-- =================================================
+                     LATEST RESULT
+                     ================================================= -->
+
+                <section
+                    id="latestResultCard"
+                    class="card latest-result-card"
+                    aria-labelledby="latestResultTitle"
+                    hidden
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                LATEST VAULT
+                            </p>
+
+                            <h3
+                                id="latestResultTitle"
+                                class="card-title"
+                            >
+                                Check Result
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="result-balance">
+
+                        <div class="result-balance__item">
+
+                            <span>
+                                Before
+                            </span>
+
+                            <strong
+                                id="latestBalanceBefore"
+                            >
+                                $0
+                            </strong>
+
+                        </div>
+
+
+                        <div
+                            class="result-balance__arrow"
+                            aria-hidden="true"
+                        >
+                            →
+                        </div>
+
+
+                        <div class="result-balance__item">
+
+                            <span>
+                                After
+                            </span>
+
+                            <strong
+                                id="latestBalanceAfter"
+                            >
+                                $0
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="result-earnings">
+
+                        <span>
+                            Vault earnings
+                        </span>
+
+                        <strong
+                            id="latestEarnings"
+                        >
+                            +$0
+                        </strong>
+
+                    </div>
+
+
+                    <div class="result-meta">
+
+                        <div>
+                            <span>Checked</span>
+                            <strong id="latestCheckedTime">—</strong>
+                        </div>
+
+                        <div>
+                            <span>Overdue</span>
+                            <strong id="latestOverdue">0s</strong>
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- =================================================
+                     TODAY'S SUMMARY
+                     ================================================= -->
+
+                <section
+                    class="card"
+                    aria-labelledby="todaySummaryTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+                            <p class="card-eyebrow">
+                                TODAY
+                            </p>
+
+                            <h3
+                                id="todaySummaryTitle"
+                                class="card-title"
+                            >
+                                Daily Summary
+                            </h3>
+                        </div>
+
+                    </div>
+
+
+                    <div class="stats-grid">
+
+                        <article class="stat-card">
+
+                            <span class="stat-card__icon">
+                                ⚡
+                            </span>
+
+                            <strong
+                                id="todayChecks"
+                                class="stat-card__value"
+                            >
+                                0
+                            </strong>
+
+                            <span class="stat-card__label">
+                                Checks
+                            </span>
+
+                        </article>
+
+
+                        <article class="stat-card">
+
+                            <span class="stat-card__icon">
+                                🔐
+                            </span>
+
+                            <strong
+                                id="todayVaults"
+                                class="stat-card__value"
+                            >
+                                0
+                            </strong>
+
+                            <span class="stat-card__label">
+                                Vaults
+                            </span>
+
+                        </article>
+
+
+                        <article class="stat-card">
+
+                            <span class="stat-card__icon">
+                                💰
+                            </span>
+
+                            <strong
+                                id="todayEarnings"
+                                class="stat-card__value"
+                            >
+                                $0
+                            </strong>
+
+                            <span class="stat-card__label">
+                                Earned
+                            </span>
+
+                        </article>
+
+
+                        <article class="stat-card">
+
+                            <span class="stat-card__icon">
+                                ⚠️
+                            </span>
+
+                            <strong
+                                id="todayOverdue"
+                                class="stat-card__value"
+                            >
+                                0
+                            </strong>
+
+                            <span class="stat-card__label">
+                                Overdue
+                            </span>
+
+                        </article>
+
+
+                        <article class="stat-card">
+
+                            <span class="stat-card__icon">
+                                ⏱️
+                            </span>
+
+                            <strong
+                                id="todayLateTime"
+                                class="stat-card__value"
+                            >
+                                0s
+                            </strong>
+
+                            <span class="stat-card__label">
+                                Late Time
+                            </span>
+
+                        </article>
+
+
+                        <article class="stat-card">
+
+                            <span class="stat-card__icon">
+                                📈
+                            </span>
+
+                            <strong
+                                id="todayAverageReward"
+                                class="stat-card__value"
+                            >
+                                $0
+                            </strong>
+
+                            <span class="stat-card__label">
+                                Avg. Reward
+                            </span>
+
+                        </article>
+
+                    </div>
+
+                </section>
+
+
+                <!-- =================================================
+                     QUICK INFORMATION
+                     ================================================= -->
+
+                <section
+                    class="card"
+                    aria-labelledby="quickInfoTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+                            <p class="card-eyebrow">
+                                CURRENT RUN
+                            </p>
+
+                            <h3
+                                id="quickInfoTitle"
+                                class="card-title"
+                            >
+                                Recharge Information
+                            </h3>
+                        </div>
+
+                    </div>
+
+
+                    <div class="info-list">
+
+                        <div class="info-row">
+
+                            <span>
+                                Starting energy
+                            </span>
+
+                            <strong
+                                id="startingEnergy"
+                            >
+                                —
+                            </strong>
+
+                        </div>
+
+
+                        <div class="info-row">
+
+                            <span>
+                                Energy remaining
+                            </span>
+
+                            <strong
+                                id="remainingEnergy"
+                            >
+                                —
+                            </strong>
+
+                        </div>
+
+
+                        <div class="info-row">
+
+                            <span>
+                                Recharge rate
+                            </span>
+
+                            <strong
+                                id="rechargeRate"
+                            >
+                                30s / energy
+                            </strong>
+
+                        </div>
+
+
+                        <div class="info-row">
+
+                            <span>
+                                Full recharge
+                            </span>
+
+                            <strong
+                                id="fullRechargeDuration"
+                            >
+                                2h 5m
+                            </strong>
+
+                        </div>
+
+
+                        <div class="info-row">
+
+                            <span>
+                                Vault energy cost
+                            </span>
+
+                            <strong
+                                id="vaultEnergyCost"
+                            >
+                                20 ⚡
+                            </strong>
+
+                        </div>
+
+
+                        <div class="info-row">
+
+                            <span>
+                                Vaults possible
+                            </span>
+
+                            <strong
+                                id="vaultsPossible"
+                            >
+                                12
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+            </section>
+
+
+            <!-- ====================================================
+                 ANALYTICS
+                 ==================================================== -->
+
+            <section
+                id="page-analytics"
+                class="page page-analytics"
+                data-page-content="analytics"
+                aria-labelledby="analyticsTitle"
+                hidden
+            >
+
+                <div class="page-heading">
+
+                    <div>
+
+                        <h2 id="analyticsTitle">
+                            Analytics
+                        </h2>
+
+                        <p>
+                            Analyze your performance and earnings.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Time period -->
+
+                <section class="analytics-period">
+
+                    <div
+                        class="segmented-control"
+                        role="group"
+                        aria-label="Analytics period"
+                    >
+
+                        <button
+                            class="period-button is-active"
+                            type="button"
+                            data-period="today"
+                        >
+                            Today
+                        </button>
+
+                        <button
+                            class="period-button"
+                            type="button"
+                            data-period="7days"
+                        >
+                            7 Days
+                        </button>
+
+                        <button
+                            class="period-button"
+                            type="button"
+                            data-period="30days"
+                        >
+                            30 Days
+                        </button>
+
+                        <button
+                            class="period-button"
+                            type="button"
+                            data-period="all"
+                        >
+                            All Time
+                        </button>
+
+                    </div>
+
+                </section>
+
+
+                <!-- Earnings overview -->
+
+                <section
+                    class="card"
+                    aria-labelledby="earningsOverviewTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                MONEY
+                            </p>
+
+                            <h3
+                                id="earningsOverviewTitle"
+                                class="card-title"
+                            >
+                                Earnings Overview
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="analytics-main-value">
+
+                        <span class="analytics-main-value__label">
+                            Total earned
+                        </span>
+
+                        <strong
+                            id="analyticsTotalEarnings"
+                            class="analytics-main-value__value"
+                        >
+                            $0
+                        </strong>
+
+                    </div>
+
+
+                    <div class="analytics-grid">
+
+                        <div class="analytics-stat">
+
+                            <span>
+                                Average / vault
+                            </span>
+
+                            <strong
+                                id="analyticsAverageReward"
+                            >
+                                $0
+                            </strong>
+
+                        </div>
+
+
+                        <div class="analytics-stat">
+
+                            <span>
+                                Highest reward
+                            </span>
+
+                            <strong
+                                id="analyticsHighestReward"
+                            >
+                                $0
+                            </strong>
+
+                        </div>
+
+
+                        <div class="analytics-stat">
+
+                            <span>
+                                Lowest reward
+                            </span>
+
+                            <strong
+                                id="analyticsLowestReward"
+                            >
+                                $0
+                            </strong>
+
+                        </div>
+
+
+                        <div class="analytics-stat">
+
+                            <span>
+                                Vaults cracked
+                            </span>
+
+                            <strong
+                                id="analyticsVaultCount"
+                            >
+                                0
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- Activity overview -->
+
+                <section
+                    class="card"
+                    aria-labelledby="activityOverviewTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                ACTIVITY
+                            </p>
+
+                            <h3
+                                id="activityOverviewTitle"
+                                class="card-title"
+                            >
+                                Activity Overview
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="analytics-grid">
+
+                        <div class="analytics-stat">
+
+                            <span>
+                                Checks
+                            </span>
+
+                            <strong
+                                id="analyticsChecks"
+                            >
+                                0
+                            </strong>
+
+                        </div>
+
+
+                        <div class="analytics-stat">
+
+                            <span>
+                                On time
+                            </span>
+
+                            <strong
+                                id="analyticsOnTime"
+                            >
+                                0
+                            </strong>
+
+                        </div>
+
+
+                        <div class="analytics-stat">
+
+                            <span>
+                                Overdue
+                            </span>
+
+                            <strong
+                                id="analyticsOverdue"
+                            >
+                                0
+                            </strong>
+
+                        </div>
+
+
+                        <div class="analytics-stat">
+
+                            <span>
+                                Total overdue
+                            </span>
+
+                            <strong
+                                id="analyticsLateTime"
+                            >
+                                0s
+                            </strong>
+
+                        </div>
+
+
+                        <div class="analytics-stat">
+
+                            <span>
+                                Average overdue
+                            </span>
+
+                            <strong
+                                id="analyticsAverageLate"
+                            >
+                                0s
+                            </strong>
+
+                        </div>
+
+
+                        <div class="analytics-stat">
+
+                            <span>
+                                Best streak
+                            </span>
+
+                            <strong
+                                id="analyticsBestStreak"
+                            >
+                                0
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- Earnings chart -->
+
+                <section
+                    class="card chart-card"
+                    aria-labelledby="earningsChartTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                TREND
+                            </p>
+
+                            <h3
+                                id="earningsChartTitle"
+                                class="card-title"
+                            >
+                                Earnings
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        id="earningsChart"
+                        class="chart-placeholder"
+                        aria-label="Earnings chart"
+                    >
+
+                        <p>
+                            Chart will appear here.
+                        </p>
+
+                    </div>
+
+                </section>
+
+
+                <!-- Vault chart -->
+
+                <section
+                    class="card chart-card"
+                    aria-labelledby="vaultChartTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                ACTIVITY
+                            </p>
+
+                            <h3
+                                id="vaultChartTitle"
+                                class="card-title"
+                            >
+                                Vaults Cracked
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        id="vaultChart"
+                        class="chart-placeholder"
+                        aria-label="Vaults cracked chart"
+                    >
+
+                        <p>
+                            Chart will appear here.
+                        </p>
+
+                    </div>
+
+                </section>
+
+
+                <!-- Overdue chart -->
+
+                <section
+                    class="card chart-card"
+                    aria-labelledby="overdueChartTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                TIMING
+                            </p>
+
+                            <h3
+                                id="overdueChartTitle"
+                                class="card-title"
+                            >
+                                Overdue Performance
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        id="overdueChart"
+                        class="chart-placeholder"
+                        aria-label="Overdue chart"
+                    >
+
+                        <p>
+                            Chart will appear here.
+                        </p>
+
+                    </div>
+
+                </section>
+
+
+                <!-- Efficiency -->
+
+                <section
+                    class="card"
+                    aria-labelledby="efficiencyTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                EFFICIENCY
+                            </p>
+
+                            <h3
+                                id="efficiencyTitle"
+                                class="card-title"
+                            >
+                                Performance
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="efficiency-list">
+
+                        <div class="efficiency-row">
+
+                            <div class="efficiency-row__header">
+
+                                <span>
+                                    Check efficiency
+                                </span>
+
+                                <strong
+                                    id="checkEfficiency"
+                                >
+                                    0%
+                                </strong>
+
+                            </div>
+
+                            <div class="efficiency-bar">
+
+                                <div
+                                    id="checkEfficiencyBar"
+                                    class="efficiency-bar__fill"
+                                    style="width: 0%;"
+                                ></div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="efficiency-row">
+
+                            <div class="efficiency-row__header">
+
+                                <span>
+                                    Theoretical vault capacity
+                                </span>
+
+                                <strong
+                                    id="vaultCapacityEfficiency"
+                                >
+                                    0%
+                                </strong>
+
+                            </div>
+
+                            <div class="efficiency-bar">
+
+                                <div
+                                    id="vaultCapacityEfficiencyBar"
+                                    class="efficiency-bar__fill"
+                                    style="width: 0%;"
+                                ></div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- Days tracked -->
+
+                <section
+                    class="card"
+                    aria-labelledby="daysTrackedTitle"
+                >
+
+                    <div class="analytics-main-value">
+
+                        <span
+                            id="daysTrackedTitle"
+                            class="analytics-main-value__label"
+                        >
+                            Days tracked
+                        </span>
+
+                        <strong
+                            id="analyticsDaysTracked"
+                            class="analytics-main-value__value"
+                        >
+                            0
+                        </strong>
+
+                    </div>
+
+                </section>
+
+            </section>
+
+
+            <!-- ====================================================
+                 HISTORY
+                 ==================================================== -->
+
+            <section
+                id="page-history"
+                class="page page-history"
+                data-page-content="history"
+                aria-labelledby="historyTitle"
+                hidden
+            >
+
+                <div class="page-heading">
+
+                    <div>
+
+                        <h2 id="historyTitle">
+                            History
+                        </h2>
+
+                        <p>
+                            Every vault check you've recorded.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <!-- History controls -->
+
+                <section class="history-controls">
+
+                    <div class="history-filter-group">
+
+                        <label
+                            for="historyDateFilter"
+                            class="form-label"
+                        >
+                            Date
+                        </label>
+
+                        <select
+                            id="historyDateFilter"
+                            class="select-input"
+                        >
+                            <option value="all">
+                                All dates
+                            </option>
+
+                            <option value="today">
+                                Today
+                            </option>
+
+                            <option value="yesterday">
+                                Yesterday
+                            </option>
+
+                            <option value="7days">
+                                Last 7 days
+                            </option>
+
+                            <option value="30days">
+                                Last 30 days
+                            </option>
+                        </select>
+
+                    </div>
+
+
+                    <div class="history-filter-group">
+
+                        <label
+                            for="historyStatusFilter"
+                            class="form-label"
+                        >
+                            Status
+                        </label>
+
+                        <select
+                            id="historyStatusFilter"
+                            class="select-input"
+                        >
+                            <option value="all">
+                                All
+                            </option>
+
+                            <option value="ontime">
+                                On time
+                            </option>
+
+                            <option value="overdue">
+                                Overdue
+                            </option>
+                        </select>
+
+                    </div>
+
+
+                    <div class="history-filter-group history-search">
+
+                        <label
+                            for="historySearch"
+                            class="form-label"
+                        >
+                            Search
+                        </label>
+
+                        <input
+                            id="historySearch"
+                            class="text-input"
+                            type="search"
+                            placeholder="Search history..."
+                            autocomplete="off"
+                        >
+
+                    </div>
+
+                </section>
+
+
+                <!-- History summary -->
+
+                <section
+                    class="card"
+                    aria-labelledby="historySummaryTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                FILTERED RESULTS
+                            </p>
+
+                            <h3
+                                id="historySummaryTitle"
+                                class="card-title"
+                            >
+                                Summary
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="history-summary-grid">
+
+                        <div>
+                            <span>
+                                Records
+                            </span>
+
+                            <strong id="historySummaryRecords">
+                                0
+                            </strong>
+                        </div>
+
+
+                        <div>
+                            <span>
+                                Earned
+                            </span>
+
+                            <strong id="historySummaryEarnings">
+                                $0
+                            </strong>
+                        </div>
+
+
+                        <div>
+                            <span>
+                                Overdue
+                            </span>
+
+                            <strong id="historySummaryOverdue">
+                                0
+                            </strong>
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- History list -->
+
+                <section
+                    class="card history-card"
+                    aria-labelledby="historyListTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                RECORDS
+                            </p>
+
+                            <h3
+                                id="historyListTitle"
+                                class="card-title"
+                            >
+                                Vault History
+                            </h3>
+
+                        </div>
+
+
+                        <span
+                            id="historyRecordCount"
+                            class="history-count"
+                        >
+                            0 records
+                        </span>
+
+                    </div>
+
+
+                    <div
+                        id="historyList"
+                        class="history-list"
+                    >
+
+                        <!--
+                            JavaScript will generate history items here.
+                        -->
+
+                        <div class="history-empty">
+
+                            <span class="history-empty__icon">
+                                📜
+                            </span>
+
+                            <p>
+                                No vault records yet.
+                            </p>
+
+                            <small>
+                                Your completed vault checks
+                                will appear here.
+                            </small>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+            </section>
+
+
+            <!-- ====================================================
+                 SETTINGS
+                 ==================================================== -->
+
+            <section
+                id="page-settings"
+                class="page page-settings"
+                data-page-content="settings"
+                aria-labelledby="settingsTitle"
+                hidden
+            >
+
+                <div class="page-heading">
+
+                    <div>
+
+                        <h2 id="settingsTitle">
+                            Settings
+                        </h2>
+
+                        <p>
+                            Configure the tracker.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Game configuration -->
+
+                <section
+                    class="card"
+                    aria-labelledby="gameSettingsTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                GAME
+                            </p>
+
+                            <h3
+                                id="gameSettingsTitle"
+                                class="card-title"
+                            >
+                                Energy Settings
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="settings-list">
+
+                        <div class="setting-row">
+
+                            <div class="setting-info">
+
+                                <strong>
+                                    Maximum energy
+                                </strong>
+
+                                <p>
+                                    Maximum energy capacity.
+                                </p>
+
+                            </div>
+
+
+                            <input
+                                id="settingMaxEnergy"
+                                class="setting-number"
+                                type="number"
+                                min="1"
+                                max="9999"
+                                step="1"
+                                value="250"
+                            >
+
+                        </div>
+
+
+                        <div class="setting-row">
+
+                            <div class="setting-info">
+
+                                <strong>
+                                    Seconds per energy
+                                </strong>
+
+                                <p>
+                                    Recharge time for one energy.
+                                </p>
+
+                            </div>
+
+
+                            <input
+                                id="settingSecondsPerEnergy"
+                                class="setting-number"
+                                type="number"
+                                min="1"
+                                max="9999"
+                                step="1"
+                                value="30"
+                            >
+
+                        </div>
+
+
+                        <div class="setting-row">
+
+                            <div class="setting-info">
+
+                                <strong>
+                                    Energy per vault
+                                </strong>
+
+                                <p>
+                                    Energy consumed by one vault.
+                                </p>
+
+                            </div>
+
+
+                            <input
+                                id="settingVaultEnergyCost"
+                                class="setting-number"
+                                type="number"
+                                min="1"
+                                max="9999"
+                                step="1"
+                                value="20"
+                            >
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- Reward information -->
+
+                <section
+                    class="card"
+                    aria-labelledby="rewardSettingsTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                REWARDS
+                            </p>
+
+                            <h3
+                                id="rewardSettingsTitle"
+                                class="card-title"
+                            >
+                                Vault Rewards
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="settings-list">
+
+                        <div class="setting-row">
+
+                            <div class="setting-info">
+
+                                <strong>
+                                    Minimum reward
+                                </strong>
+
+                                <p>
+                                    Lowest expected vault reward.
+                                </p>
+
+                            </div>
+
+
+                            <div class="money-setting-input">
+
+                                <span>
+                                    $
+                                </span>
+
+                                <input
+                                    id="settingMinReward"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value="9000"
+                                >
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="setting-row">
+
+                            <div class="setting-info">
+
+                                <strong>
+                                    Maximum reward
+                                </strong>
+
+                                <p>
+                                    Highest expected vault reward.
+                                </p>
+
+                            </div>
+
+
+                            <div class="money-setting-input">
+
+                                <span>
+                                    $
+                                </span>
+
+                                <input
+                                    id="settingMaxReward"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value="16000"
+                                >
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- Notifications -->
+
+                <section
+                    class="card"
+                    aria-labelledby="notificationSettingsTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                ALERTS
+                            </p>
+
+                            <h3
+                                id="notificationSettingsTitle"
+                                class="card-title"
+                            >
+                                Notifications
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="settings-list">
+
+                        <div class="setting-row">
+
+                            <div class="setting-info">
+
+                                <strong>
+                                    Notifications
+                                </strong>
+
+                                <p>
+                                    Notify when energy becomes full.
+                                </p>
+
+                            </div>
+
+
+                            <button
+                                id="notificationPermissionButton"
+                                class="button button--secondary button--small"
+                                type="button"
+                            >
+                                Enable
+                            </button>
+
+                        </div>
+
+
+                        <div class="setting-row">
+
+                            <div class="setting-info">
+
+                                <strong>
+                                    Notification status
+                                </strong>
+
+                                <p
+                                    id="notificationStatus"
+                                >
+                                    Not enabled
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- Test mode -->
+
+                <section
+                    class="card"
+                    aria-labelledby="testModeTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                DEVELOPMENT
+                            </p>
+
+                            <h3
+                                id="testModeTitle"
+                                class="card-title"
+                            >
+                                Test Mode
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="setting-row">
+
+                        <div class="setting-info">
+
+                            <strong>
+                                Fast recharge
+                            </strong>
+
+                            <p>
+                                Uses 10 maximum energy and
+                                5 seconds per energy.
+                            </p>
+
+                        </div>
+
+
+                        <button
+                            id="testModeButton"
+                            class="button button--secondary button--small"
+                            type="button"
+                        >
+                            OFF
+                        </button>
+
+                    </div>
+
+                </section>
+
+
+                <!-- Data -->
+
+                <section
+                    class="card"
+                    aria-labelledby="dataSettingsTitle"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                DATA
+                            </p>
+
+                            <h3
+                                id="dataSettingsTitle"
+                                class="card-title"
+                            >
+                                Data Management
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="settings-actions">
+
+                        <button
+                            id="exportDataButton"
+                            class="button button--secondary button--full"
+                            type="button"
+                        >
+                            📤 Export Data
+                        </button>
+
+
+                        <button
+                            id="importDataButton"
+                            class="button button--secondary button--full"
+                            type="button"
+                        >
+                            📥 Import Data
+                        </button>
+
+
+                        <button
+                            id="clearHistoryButton"
+                            class="button button--danger button--full"
+                            type="button"
+                        >
+                            🗑 Clear History
+                        </button>
+
+
+                        <button
+                            id="resetApplicationButton"
+                            class="button button--danger button--full"
+                            type="button"
+                        >
+                            ⚠️ Reset Everything
+                        </button>
+
+                    </div>
+
+
+                    <input
+                        id="importFileInput"
+                        type="file"
+                        accept=".json,application/json"
+                        hidden
+                    >
+
+                </section>
+
+            </section>
+
+        </main>
+
+
+        <!-- ========================================================
+             FOOTER
+             ======================================================== -->
+
+        <footer class="app-footer">
+
+            <span>
+                Vault Energy Tracker
+            </span>
+
+            <span>
+                •
+            </span>
+
+            <span>
+                v2.0
+            </span>
+
+        </footer>
+
+    </div>
+
+
+    <!-- ============================================================
+         CHECK RESULT MODAL
+         ============================================================ -->
+
+    <div
+        id="checkResultModal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checkResultModalTitle"
+        hidden
+    >
+
+        <div class="modal__backdrop"></div>
+
+
+        <div class="modal__content">
+
+            <div class="modal__header">
+
+                <div>
+
+                    <p class="card-eyebrow">
+                        VAULT CHECK
+                    </p>
+
+                    <h2 id="checkResultModalTitle">
+                        Record Result
+                    </h2>
+
+                </div>
+
 
                 <button
-                    class="icon-button settings-close"
-                    id="settingsClose"
+                    id="closeCheckResultModal"
+                    class="icon-button"
                     type="button"
-                    aria-label="Close settings"
+                    aria-label="Close"
                 >
                     ✕
                 </button>
-            </div>
-
-            <div class="setting">
-                <div class="setting-info">
-                    <div class="setting-name">Maximum energy</div>
-                    <div class="setting-description">
-                        Maximum amount of energy the game allows.
-                    </div>
-                </div>
-
-                <div class="setting-control">
-                    <input
-                        class="setting-number"
-                        id="settingMaxEnergy"
-                        type="number"
-                        min="1"
-                        max="9999"
-                        step="1"
-                        value="250"
-                    >
-                </div>
-            </div>
-
-            <div class="setting">
-                <div class="setting-info">
-                    <div class="setting-name">Seconds per energy</div>
-                    <div class="setting-description">
-                        How many seconds are required to gain one energy.
-                    </div>
-                </div>
-
-                <div class="setting-control">
-                    <input
-                        class="setting-number"
-                        id="settingSecPerEnergy"
-                        type="number"
-                        min="1"
-                        max="9999"
-                        step="1"
-                        value="30"
-                    >
-                </div>
-            </div>
-
-            <div class="setting">
-                <div class="setting-info">
-                    <div class="setting-name">Notifications</div>
-                    <div class="setting-description">
-                        Shows a notification when energy becomes full while
-                        the page is running.
-                    </div>
-                </div>
-
-                <div class="setting-control">
-                    <button
-                        class="button button-small button-ghost"
-                        id="notificationBtn"
-                        type="button"
-                    >
-                        Enable
-                    </button>
-                </div>
-            </div>
-
-            <div class="setting">
-                <div class="setting-info">
-                    <div class="setting-name">Test mode</div>
-                    <div class="setting-description">
-                        Uses 10 maximum energy and 5 seconds per energy.
-                    </div>
-                </div>
-
-                <div class="setting-control">
-                    <button
-                        class="button button-small button-ghost"
-                        id="testModeBtn"
-                        type="button"
-                    >
-                        OFF
-                    </button>
-                </div>
-            </div>
-
-            <div class="setting">
-                <div class="setting-info">
-                    <div class="setting-name">Clear all data</div>
-                    <div class="setting-description">
-                        Deletes tracker state and all history.
-                    </div>
-                </div>
-
-                <div class="setting-control">
-                    <button
-                        class="button button-small button-danger"
-                        id="clearDataBtn"
-                        type="button"
-                    >
-                        Delete
-                    </button>
-                </div>
-            </div>
-
-            <div class="notice hidden" id="notificationNotice"></div>
-        </section>
-
-
-        <!-- =========================================================
-             MAIN TRACKER
-             ========================================================== -->
-
-        <section class="card tracker-card" id="trackerCard">
-
-            <div class="energy-section">
-
-                <div class="energy-value">
-                    <span
-                        class="energy-current"
-                        id="energyCurrent"
-                    >
-                        0
-                    </span>
-
-                    <span class="energy-max">
-                        / <span id="energyMax">250</span>
-                    </span>
-                </div>
-
-                <div
-                    class="status status-idle"
-                    id="status"
-                >
-                    Enter your current energy to begin.
-                </div>
 
             </div>
 
 
-            <!-- Progress -->
+            <!-- Balance before -->
 
-            <div class="progress-container">
-
-                <div
-                    class="progress-track"
-                    role="progressbar"
-                    aria-valuemin="0"
-                    aria-valuemax="250"
-                    aria-valuenow="0"
-                    id="progressTrack"
-                >
-                    <div
-                        class="progress-bar"
-                        id="progressBar"
-                    ></div>
-                </div>
-
-                <div class="progress-label">
-                    <span>0%</span>
-                    <span id="progressPercent">0%</span>
-                </div>
-
-            </div>
-
-
-            <!-- Countdown -->
-
-            <div class="countdown">
-
-                <div class="countdown-label">
-                    Time until full
-                </div>
-
-                <div
-                    class="countdown-value"
-                    id="countdown"
-                >
-                    --:--:--
-                </div>
-
-                <div
-                    class="full-at"
-                    id="fullAt"
-                >
-                    Full at <strong>--</strong>
-                </div>
-
-            </div>
-
-
-            <!-- Input -->
-
-            <div class="input-section">
+            <div class="modal-field">
 
                 <label
-                    class="input-label"
-                    for="energyInput"
+                    for="modalBalanceBefore"
+                    class="form-label"
                 >
-                    Current energy
+                    Balance before
                 </label>
 
-                <div class="input-row">
+                <div class="money-input">
 
-                    <div class="energy-input-wrapper">
-                        <input
-                            class="energy-input"
-                            id="energyInput"
-                            type="number"
-                            min="0"
-                            max="250"
-                            step="1"
-                            inputmode="numeric"
-                            autocomplete="off"
-                            placeholder="Enter energy"
-                            aria-describedby="inputHint"
-                        >
+                    <span class="money-input__currency">
+                        $
+                    </span>
 
-                        <span
-                            class="energy-input-suffix"
-                            id="energySuffix"
-                        >
-                            / 250
-                        </span>
-                    </div>
-
-                    <button
-                        class="button button-primary"
-                        id="startBtn"
-                        type="button"
+                    <input
+                        id="modalBalanceBefore"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputmode="decimal"
                     >
-                        START
-                    </button>
 
                 </div>
-
-                <div
-                    class="notice hidden"
-                    id="inputNotice"
-                ></div>
 
             </div>
 
 
-            <!-- Check -->
+            <!-- Balance after -->
 
-            <div
-                class="check-section"
-                id="checkSection"
-                hidden
-            >
+            <div class="modal-field">
+
+                <label
+                    for="modalBalanceAfter"
+                    class="form-label"
+                >
+                    Balance after
+                </label>
+
+                <div class="money-input">
+
+                    <span class="money-input__currency">
+                        $
+                    </span>
+
+                    <input
+                        id="modalBalanceAfter"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputmode="decimal"
+                    >
+
+                </div>
+
+            </div>
+
+
+            <!-- Calculated earning -->
+
+            <div class="modal-earning-preview">
+
+                <span>
+                    Vault earnings
+                </span>
+
+                <strong
+                    id="modalEarningsPreview"
+                >
+                    +$0
+                </strong>
+
+            </div>
+
+
+            <!-- Overdue information -->
+
+            <div class="modal-overdue-preview">
+
+                <span>
+                    Energy became full
+                </span>
+
+                <strong
+                    id="modalFullTime"
+                >
+                    —
+                </strong>
+
+
+                <span>
+                    Checked
+                </span>
+
+                <strong
+                    id="modalCheckedTime"
+                >
+                    —
+                </strong>
+
+
+                <span>
+                    Overdue
+                </span>
+
+                <strong
+                    id="modalOverdueTime"
+                >
+                    0s
+                </strong>
+
+            </div>
+
+
+            <div class="modal-actions">
+
                 <button
-                    class="button button-success button-full"
-                    id="checkBtn"
+                    id="cancelCheckResultButton"
+                    class="button button--secondary"
                     type="button"
                 >
-                    ✅ CHECKED
+                    Cancel
                 </button>
-            </div>
 
-        </section>
-
-
-        <!-- =========================================================
-             TODAY
-             ========================================================== -->
-
-        <section class="card">
-
-            <div class="card-title">
-                📊 Today
-            </div>
-
-            <div class="stats-grid">
-
-                <div class="stat">
-                    <div
-                        class="stat-value"
-                        id="statChecks"
-                    >
-                        0
-                    </div>
-
-                    <div class="stat-label">
-                        Checks
-                    </div>
-                </div>
-
-                <div class="stat">
-                    <div
-                        class="stat-value"
-                        id="statOverdue"
-                    >
-                        0
-                    </div>
-
-                    <div class="stat-label">
-                        Overdue
-                    </div>
-                </div>
-
-                <div class="stat">
-                    <div
-                        class="stat-value"
-                        id="statLateTime"
-                    >
-                        0s
-                    </div>
-
-                    <div class="stat-label">
-                        Late time
-                    </div>
-                </div>
-
-            </div>
-
-        </section>
-
-
-        <!-- =========================================================
-             HISTORY
-             ========================================================== -->
-
-        <section class="card">
-
-            <div class="history-header">
-                <div class="card-title">
-                    📜 History
-                </div>
-
-                <div
-                    class="history-count"
-                    id="historyCount"
+                <button
+                    id="saveCheckResultButton"
+                    class="button button--success"
+                    type="button"
                 >
-                    0 records
-                </div>
+                    Save Vault
+                </button>
+
             </div>
 
-            <div
-                class="history-list"
-                id="historyList"
+        </div>
+
+    </div>
+
+
+    <!-- ============================================================
+         CONFIRMATION MODAL
+         ============================================================ -->
+
+    <div
+        id="confirmationModal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirmationModalTitle"
+        hidden
+    >
+
+        <div class="modal__backdrop"></div>
+
+
+        <div class="modal__content modal__content--small">
+
+            <div class="modal__header">
+
+                <div>
+
+                    <h2 id="confirmationModalTitle">
+                        Confirm Action
+                    </h2>
+
+                </div>
+
+            </div>
+
+
+            <p
+                id="confirmationMessage"
+                class="confirmation-message"
             >
-                <div class="history-empty">
-                    No records yet.
-                </div>
+                Are you sure?
+            </p>
+
+
+            <div class="modal-actions">
+
+                <button
+                    id="cancelConfirmationButton"
+                    class="button button--secondary"
+                    type="button"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    id="confirmActionButton"
+                    class="button button--danger"
+                    type="button"
+                >
+                    Confirm
+                </button>
+
             </div>
 
-        </section>
+        </div>
 
+    </div>
 
-        <footer class="footer">
-            Vault Energy Tracker • v1.1
-        </footer>
 
-    </main>
+    <!-- ============================================================
+         JAVASCRIPT
+         ============================================================ -->
 
+    <!--
+        JavaScript will be added in the next step.
 
-    <script>
-        (() => {
-            "use strict";
+        Suggested final structure:
 
-            /* ========================================================
-               STORAGE
-               ======================================================== */
-
-            const STORAGE_KEY = "vaultEnergyTracker";
-
-
-            /* ========================================================
-               DEFAULT CONFIG
-               ======================================================== */
-
-            const DEFAULT_CONFIG = {
-                maxEnergy: 250,
-                secPerEnergy: 30
-            };
-
-
-            /* ========================================================
-               STATE
-               ======================================================== */
-
-            const state = {
-                currentEnergy: 0,
-
-                startingEnergy: 0,
-
-                trackingStartedAt: null,
-
-                fullAt: null,
-
-                waitingForCheck: false,
-
-                history: [],
-
-                notificationsEnabled: false,
-
-                testMode: false
-            };
-
-
-            let config = {
-                ...DEFAULT_CONFIG
-            };
-
-            let timer = null;
-
-            let lastRenderedSecond = null;
-
-            let notificationWasShownForCurrentCycle = false;
-
-
-            /* ========================================================
-               DOM
-               ======================================================== */
-
-            const dom = {
-                settingsPanel: document.querySelector("#settingsPanel"),
-                settingsToggle: document.querySelector("#settingsToggle"),
-                settingsClose: document.querySelector("#settingsClose"),
-
-                settingMaxEnergy:
-                    document.querySelector("#settingMaxEnergy"),
-
-                settingSecPerEnergy:
-                    document.querySelector("#settingSecPerEnergy"),
-
-                notificationBtn:
-                    document.querySelector("#notificationBtn"),
-
-                notificationNotice:
-                    document.querySelector("#notificationNotice"),
-
-                testModeBtn:
-                    document.querySelector("#testModeBtn"),
-
-                clearDataBtn:
-                    document.querySelector("#clearDataBtn"),
-
-                trackerCard:
-                    document.querySelector("#trackerCard"),
-
-                energyCurrent:
-                    document.querySelector("#energyCurrent"),
-
-                energyMax:
-                    document.querySelector("#energyMax"),
-
-                energyInput:
-                    document.querySelector("#energyInput"),
-
-                energySuffix:
-                    document.querySelector("#energySuffix"),
-
-                status:
-                    document.querySelector("#status"),
-
-                countdown:
-                    document.querySelector("#countdown"),
-
-                fullAt:
-                    document.querySelector("#fullAt"),
-
-                progressTrack:
-                    document.querySelector("#progressTrack"),
-
-                progressBar:
-                    document.querySelector("#progressBar"),
-
-                progressPercent:
-                    document.querySelector("#progressPercent"),
-
-                startBtn:
-                    document.querySelector("#startBtn"),
-
-                checkSection:
-                    document.querySelector("#checkSection"),
-
-                checkBtn:
-                    document.querySelector("#checkBtn"),
-
-                inputNotice:
-                    document.querySelector("#inputNotice"),
-
-                statChecks:
-                    document.querySelector("#statChecks"),
-
-                statOverdue:
-                    document.querySelector("#statOverdue"),
-
-                statLateTime:
-                    document.querySelector("#statLateTime"),
-
-                historyList:
-                    document.querySelector("#historyList"),
-
-                historyCount:
-                    document.querySelector("#historyCount")
-            };
-
-
-            /* ========================================================
-               GENERAL HELPERS
-               ======================================================== */
-
-            const clamp = (value, min, max) =>
-                Math.max(min, Math.min(max, value));
-
-
-            const now = () =>
-                Date.now();
-
-
-            function pad(value) {
-                return String(value).padStart(2, "0");
-            }
-
-
-            function formatDuration(totalSeconds) {
-
-                if (!Number.isFinite(totalSeconds)) {
-                    return "--:--:--";
-                }
-
-                totalSeconds = Math.max(
-                    0,
-                    Math.floor(totalSeconds)
-                );
-
-                const hours =
-                    Math.floor(totalSeconds / 3600);
-
-                const minutes =
-                    Math.floor((totalSeconds % 3600) / 60);
-
-                const seconds =
-                    totalSeconds % 60;
-
-                return (
-                    `${pad(hours)}:` +
-                    `${pad(minutes)}:` +
-                    `${pad(seconds)}`
-                );
-            }
-
-
-            function formatTime(timestamp) {
-
-                if (!timestamp) {
-                    return "--";
-                }
-
-                return new Date(timestamp).toLocaleTimeString(
-                    [],
-                    {
-                        hour: "2-digit",
-                        minute: "2-digit"
-                    }
-                );
-            }
-
-
-            function formatTimeWithSeconds(timestamp) {
-
-                if (!timestamp) {
-                    return "--";
-                }
-
-                return new Date(timestamp).toLocaleTimeString(
-                    [],
-                    {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit"
-                    }
-                );
-            }
-
-
-            function formatDate(timestamp) {
-
-                if (!timestamp) {
-                    return "--";
-                }
-
-                return new Date(timestamp).toLocaleDateString(
-                    [],
-                    {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric"
-                    }
-                );
-            }
-
-
-            function getStartOfToday() {
-
-                const date = new Date();
-
-                date.setHours(0, 0, 0, 0);
-
-                return date.getTime();
-            }
-
-
-            function getFullRechargeSeconds() {
-
-                return (
-                    config.maxEnergy *
-                    config.secPerEnergy
-                );
-            }
-
-
-            function getRemainingEnergy() {
-
-                return Math.max(
-                    0,
-                    config.maxEnergy -
-                    state.currentEnergy
-                );
-            }
-
-
-            /* ========================================================
-               STORAGE
-               ======================================================== */
-
-            function saveState() {
-
-                try {
-
-                    const data = {
-                        version: 2,
-
-                        state: {
-                            currentEnergy:
-                                state.currentEnergy,
-
-                            startingEnergy:
-                                state.startingEnergy,
-
-                            trackingStartedAt:
-                                state.trackingStartedAt,
-
-                            fullAt:
-                                state.fullAt,
-
-                            waitingForCheck:
-                                state.waitingForCheck,
-
-                            history:
-                                state.history,
-
-                            notificationsEnabled:
-                                state.notificationsEnabled,
-
-                            testMode:
-                                state.testMode
-                        },
-
-                        config: {
-                            ...config
-                        }
-                    };
-
-                    localStorage.setItem(
-                        STORAGE_KEY,
-                        JSON.stringify(data)
-                    );
-
-                } catch (error) {
-
-                    console.error(
-                        "Could not save state:",
-                        error
-                    );
-                }
-            }
-
-
-            function loadState() {
-
-                try {
-
-                    const raw =
-                        localStorage.getItem(STORAGE_KEY);
-
-                    if (!raw) {
-                        return false;
-                    }
-
-                    const data =
-                        JSON.parse(raw);
-
-                    if (data.config) {
-
-                        if (
-                            Number.isFinite(
-                                data.config.maxEnergy
-                            )
-                        ) {
-                            config.maxEnergy =
-                                clamp(
-                                    Math.floor(
-                                        data.config.maxEnergy
-                                    ),
-                                    1,
-                                    9999
-                                );
-                        }
-
-                        if (
-                            Number.isFinite(
-                                data.config.secPerEnergy
-                            )
-                        ) {
-                            config.secPerEnergy =
-                                clamp(
-                                    Math.floor(
-                                        data.config.secPerEnergy
-                                    ),
-                                    1,
-                                    9999
-                                );
-                        }
-                    }
-
-                    const saved =
-                        data.state || {};
-
-                    state.currentEnergy =
-                        Number.isFinite(
-                            saved.currentEnergy
-                        )
-                            ? saved.currentEnergy
-                            : 0;
-
-                    state.startingEnergy =
-                        Number.isFinite(
-                            saved.startingEnergy
-                        )
-                            ? saved.startingEnergy
-                            : state.currentEnergy;
-
-                    state.trackingStartedAt =
-                        saved.trackingStartedAt ??
-                        null;
-
-                    state.fullAt =
-                        saved.fullAt ??
-                        null;
-
-                    state.waitingForCheck =
-                        Boolean(
-                            saved.waitingForCheck
-                        );
-
-                    state.history =
-                        Array.isArray(
-                            saved.history
-                        )
-                            ? saved.history
-                            : [];
-
-                    state.notificationsEnabled =
-                        Boolean(
-                            saved.notificationsEnabled
-                        );
-
-                    state.testMode =
-                        Boolean(
-                            saved.testMode
-                        );
-
-                    state.currentEnergy =
-                        clamp(
-                            Math.floor(
-                                state.currentEnergy
-                            ),
-                            0,
-                            config.maxEnergy
-                        );
-
-                    return true;
-
-                } catch (error) {
-
-                    console.error(
-                        "Could not load state:",
-                        error
-                    );
-
-                    return false;
-                }
-            }
-
-
-            /* ========================================================
-               TIMER / STATE RECOMPUTATION
-               ======================================================== */
-
-            function recomputeState() {
-
-                if (
-                    state.fullAt === null ||
-                    state.trackingStartedAt === null
-                ) {
-                    return;
-                }
-
-                const currentTime = now();
-
-
-                /* ----------------------------------------------------
-                   FULL
-                   ---------------------------------------------------- */
-
-                if (currentTime >= state.fullAt) {
-
-                    state.currentEnergy =
-                        config.maxEnergy;
-
-                    state.waitingForCheck = true;
-
-                    return;
-                }
-
-
-                /* ----------------------------------------------------
-                   COUNTING
-                   ---------------------------------------------------- */
-
-                const elapsedSeconds =
-                    Math.max(
-                        0,
-                        (currentTime -
-                            state.trackingStartedAt) /
-                            1000
-                    );
-
-                const energyGained =
-                    Math.floor(
-                        elapsedSeconds /
-                        config.secPerEnergy
-                    );
-
-                state.currentEnergy =
-                    clamp(
-                        state.startingEnergy +
-                        energyGained,
-                        0,
-                        config.maxEnergy
-                    );
-            }
-
-
-            /* ========================================================
-               START TRACKING
-               ======================================================== */
-
-            function startTracking(energy) {
-
-                const safeEnergy =
-                    clamp(
-                        Math.floor(energy),
-                        0,
-                        config.maxEnergy
-                    );
-
-                const currentTime =
-                    now();
-
-                state.currentEnergy =
-                    safeEnergy;
-
-                state.startingEnergy =
-                    safeEnergy;
-
-                state.trackingStartedAt =
-                    currentTime;
-
-
-                /* ----------------------------------------------------
-                   Already full
-                   ---------------------------------------------------- */
-
-                if (
-                    safeEnergy >=
-                    config.maxEnergy
-                ) {
-
-                    state.currentEnergy =
-                        config.maxEnergy;
-
-                    state.fullAt =
-                        currentTime;
-
-                    state.waitingForCheck =
-                        true;
-
-                } else {
-
-                    const remainingEnergy =
-                        config.maxEnergy -
-                        safeEnergy;
-
-                    const secondsNeeded =
-                        remainingEnergy *
-                        config.secPerEnergy;
-
-                    state.fullAt =
-                        currentTime +
-                        secondsNeeded * 1000;
-
-                    state.waitingForCheck =
-                        false;
-                }
-
-                notificationWasShownForCurrentCycle =
-                    false;
-
-                saveState();
-
-                clearInputError();
-
-                render();
-            }
-
-
-            /* ========================================================
-               CHECK FULL ENERGY
-               ======================================================== */
-
-            function doCheck() {
-
-                if (!state.waitingForCheck) {
-                    return;
-                }
-
-                const currentTime =
-                    now();
-
-                const fullTimestamp =
-                    state.fullAt ?? currentTime;
-
-                const overdueSeconds =
-                    Math.max(
-                        0,
-                        (currentTime -
-                            fullTimestamp) /
-                            1000
-                    );
-
-                const record = {
-
-                    id:
-                        `${currentTime}-${Math.random()
-                            .toString(36)
-                            .slice(2, 8)}`,
-
-                    fullAt:
-                        fullTimestamp,
-
-                    checkedAt:
-                        currentTime,
-
-                    overdueSeconds:
-                        overdueSeconds
-                };
-
-
-                state.history.push(record);
-
-
-                /* ----------------------------------------------------
-                   Start new cycle from zero
-                   ---------------------------------------------------- */
-
-                state.currentEnergy = 0;
-
-                state.startingEnergy = 0;
-
-                state.trackingStartedAt =
-                    currentTime;
-
-                state.fullAt =
-                    currentTime +
-                    getFullRechargeSeconds() *
-                    1000;
-
-                state.waitingForCheck = false;
-
-                notificationWasShownForCurrentCycle =
-                    false;
-
-                saveState();
-
-                render();
-            }
-
-
-            /* ========================================================
-               CONFIGURATION
-               ======================================================== */
-
-            function applySettings() {
-
-                const oldMax =
-                    config.maxEnergy;
-
-                const oldSec =
-                    config.secPerEnergy;
-
-
-                let newMax =
-                    parseInt(
-                        dom.settingMaxEnergy.value,
-                        10
-                    );
-
-                let newSec =
-                    parseInt(
-                        dom.settingSecPerEnergy.value,
-                        10
-                    );
-
-
-                if (!Number.isFinite(newMax)) {
-                    newMax = oldMax;
-                }
-
-                if (!Number.isFinite(newSec)) {
-                    newSec = oldSec;
-                }
-
-
-                newMax =
-                    clamp(
-                        newMax,
-                        1,
-                        9999
-                    );
-
-                newSec =
-                    clamp(
-                        newSec,
-                        1,
-                        9999
-                    );
-
-
-                /* ----------------------------------------------------
-                   Capture current energy BEFORE changing configuration
-                   ---------------------------------------------------- */
-
-                recomputeState();
-
-
-                config.maxEnergy =
-                    newMax;
-
-                config.secPerEnergy =
-                    newSec;
-
-
-                /* ----------------------------------------------------
-                   No active timer
-                   ---------------------------------------------------- */
-
-                if (
-                    state.fullAt === null
-                ) {
-
-                    state.currentEnergy =
-                        clamp(
-                            state.currentEnergy,
-                            0,
-                            newMax
-                        );
-
-                    state.startingEnergy =
-                        state.currentEnergy;
-
-                }
-
-
-                /* ----------------------------------------------------
-                   Full state
-                   ---------------------------------------------------- */
-
-                else if (
-                    state.waitingForCheck
-                ) {
-
-                    state.currentEnergy =
-                        newMax;
-
-                    state.startingEnergy =
-                        newMax;
-
-                    state.fullAt =
-                        now();
-
-                }
-
-
-                /* ----------------------------------------------------
-                   Active recharge
-                   ---------------------------------------------------- */
-
-                else {
-
-                    state.currentEnergy =
-                        clamp(
-                            state.currentEnergy,
-                            0,
-                            newMax
-                        );
-
-                    state.startingEnergy =
-                        state.currentEnergy;
-
-                    state.trackingStartedAt =
-                        now();
-
-                    const remainingEnergy =
-                        newMax -
-                        state.currentEnergy;
-
-                    state.fullAt =
-                        now() +
-                        (
-                            remainingEnergy *
-                            newSec *
-                            1000
-                        );
-                }
-
-
-                updateSettingsUI();
-
-                saveState();
-
-                render();
-            }
-
-
-            /* ========================================================
-               TEST MODE
-               ======================================================== */
-
-            function toggleTestMode() {
-
-                state.testMode =
-                    !state.testMode;
-
-
-                if (state.testMode) {
-
-                    config.maxEnergy = 10;
-
-                    config.secPerEnergy = 5;
-
-                } else {
-
-                    config =
-                        {
-                            ...DEFAULT_CONFIG
-                        };
-                }
-
-
-                /*
-                 * Reset active tracking because changing test mode
-                 * should never silently corrupt the current cycle.
-                 */
-
-                state.currentEnergy = 0;
-
-                state.startingEnergy = 0;
-
-                state.trackingStartedAt = null;
-
-                state.fullAt = null;
-
-                state.waitingForCheck = false;
-
-                notificationWasShownForCurrentCycle =
-                    false;
-
-
-                updateSettingsUI();
-
-                saveState();
-
-                render();
-            }
-
-
-            /* ========================================================
-               NOTIFICATIONS
-               ======================================================== */
-
-            async function enableNotifications() {
-
-                if (
-                    !("Notification" in window)
-                ) {
-
-                    showNotificationNotice(
-                        "Notifications are not supported by this browser."
-                    );
-
-                    return;
-                }
-
-
-                try {
-
-                    const permission =
-                        await Notification.requestPermission();
-
-
-                    if (
-                        permission === "granted"
-                    ) {
-
-                        state.notificationsEnabled =
-                            true;
-
-                        saveState();
-
-                        updateNotificationButton();
-
-                        showNotificationNotice(
-                            "Notifications are enabled."
-                        );
-
-                    } else {
-
-                        state.notificationsEnabled =
-                            false;
-
-                        saveState();
-
-                        updateNotificationButton();
-
-                        showNotificationNotice(
-                            "Notification permission was not granted."
-                        );
-                    }
-
-                } catch (error) {
-
-                    console.error(error);
-
-                    showNotificationNotice(
-                        "Could not enable notifications."
-                    );
-                }
-            }
-
-
-            function maybeNotifyFull() {
-
-                if (
-                    !state.waitingForCheck ||
-                    notificationWasShownForCurrentCycle
-                ) {
-                    return;
-                }
-
-                notificationWasShownForCurrentCycle =
-                    true;
-
-
-                if (
-                    !state.notificationsEnabled
-                ) {
-                    return;
-                }
-
-                if (
-                    !("Notification" in window) ||
-                    Notification.permission !==
-                        "granted"
-                ) {
-                    return;
-                }
-
-
-                try {
-
-                    new Notification(
-                        "🔋 Energy Full!",
-                        {
-                            body:
-                                `Your energy reached ${config.maxEnergy}/${config.maxEnergy}.`,
-                            tag:
-                                "vault-energy-full"
-                        }
-                    );
-
-                } catch (error) {
-
-                    console.error(
-                        "Notification failed:",
-                        error
-                    );
-                }
-            }
-
-
-            /* ========================================================
-               SETTINGS UI
-               ======================================================== */
-
-            function updateSettingsUI() {
-
-                dom.settingMaxEnergy.value =
-                    config.maxEnergy;
-
-                dom.settingSecPerEnergy.value =
-                    config.secPerEnergy;
-
-
-                dom.testModeBtn.textContent =
-                    state.testMode
-                        ? "ON"
-                        : "OFF";
-
-
-                dom.testModeBtn.classList.toggle(
-                    "button-success",
-                    state.testMode
-                );
-
-                dom.testModeBtn.classList.toggle(
-                    "button-ghost",
-                    !state.testMode
-                );
-
-
-                updateNotificationButton();
-            }
-
-
-            function updateNotificationButton() {
-
-                if (
-                    !("Notification" in window)
-                ) {
-
-                    dom.notificationBtn.textContent =
-                        "Unsupported";
-
-                    dom.notificationBtn.disabled =
-                        true;
-
-                    return;
-                }
-
-
-                if (
-                    Notification.permission ===
-                    "granted"
-                ) {
-
-                    dom.notificationBtn.textContent =
-                        "Enabled";
-
-                    dom.notificationBtn.classList.add(
-                        "button-success"
-                    );
-
-                    dom.notificationBtn.classList.remove(
-                        "button-ghost"
-                    );
-
-                    state.notificationsEnabled =
-                        true;
-
-                    return;
-                }
-
-
-                if (
-                    Notification.permission ===
-                    "denied"
-                ) {
-
-                    dom.notificationBtn.textContent =
-                        "Blocked";
-
-                    dom.notificationBtn.disabled =
-                        true;
-
-                    return;
-                }
-
-
-                dom.notificationBtn.textContent =
-                    "Enable";
-
-                dom.notificationBtn.classList.remove(
-                    "button-success"
-                );
-
-                dom.notificationBtn.classList.add(
-                    "button-ghost"
-                );
-            }
-
-
-            function showNotificationNotice(message) {
-
-                dom.notificationNotice.textContent =
-                    message;
-
-                dom.notificationNotice.classList.remove(
-                    "hidden"
-                );
-
-                setTimeout(() => {
-                    dom.notificationNotice.classList.add(
-                        "hidden"
-                    );
-                }, 4000);
-            }
-
-
-            /* ========================================================
-               INPUT VALIDATION
-               ======================================================== */
-
-            function showInputError(message) {
-
-                dom.energyInput.classList.add(
-                    "invalid"
-                );
-
-                dom.inputNotice.textContent =
-                    message;
-
-                dom.inputNotice.classList.remove(
-                    "hidden"
-                );
-            }
-
-
-            function clearInputError() {
-
-                dom.energyInput.classList.remove(
-                    "invalid"
-                );
-
-                dom.inputNotice.classList.add(
-                    "hidden"
-                );
-            }
-
-
-            /* ========================================================
-               STATS
-               ======================================================== */
-
-            function formatLateDuration(seconds) {
-
-                seconds =
-                    Math.max(
-                        0,
-                        Math.round(seconds)
-                    );
-
-
-                if (seconds < 60) {
-                    return `${seconds}s`;
-                }
-
-
-                const minutes =
-                    Math.floor(seconds / 60);
-
-                const remainingSeconds =
-                    seconds % 60;
-
-
-                if (minutes < 60) {
-
-                    return remainingSeconds > 0
-                        ? `${minutes}m ${remainingSeconds}s`
-                        : `${minutes}m`;
-                }
-
-
-                const hours =
-                    Math.floor(minutes / 60);
-
-                const remainingMinutes =
-                    minutes % 60;
-
-
-                return remainingMinutes > 0
-                    ? `${hours}h ${remainingMinutes}m`
-                    : `${hours}h`;
-            }
-
-
-            function updateStats() {
-
-                const today =
-                    getStartOfToday();
-
-
-                const records =
-                    state.history.filter(
-                        record =>
-                            record.checkedAt >= today
-                    );
-
-
-                const checks =
-                    records.length;
-
-
-                const overdueRecords =
-                    records.filter(
-                        record =>
-                            record.overdueSeconds > 1
-                    );
-
-
-                const totalLate =
-                    records.reduce(
-                        (sum, record) =>
-                            sum +
-                            record.overdueSeconds,
-                        0
-                    );
-
-
-                dom.statChecks.textContent =
-                    checks;
-
-                dom.statOverdue.textContent =
-                    overdueRecords.length;
-
-                dom.statLateTime.textContent =
-                    formatLateDuration(totalLate);
-            }
-
-
-            /* ========================================================
-               HISTORY
-               ======================================================== */
-
-            function updateHistory() {
-
-                const count =
-                    state.history.length;
-
-
-                dom.historyCount.textContent =
-                    `${count} record${count === 1 ? "" : "s"}`;
-
-
-                if (count === 0) {
-
-                    dom.historyList.innerHTML =
-                        `
-                            <div class="history-empty">
-                                No records yet.
-                            </div>
-                        `;
-
-                    return;
-                }
-
-
-                const records =
-                    [...state.history]
-                        .sort(
-                            (a, b) =>
-                                b.checkedAt -
-                                a.checkedAt
-                        );
-
-
-                dom.historyList.innerHTML =
-                    records
-                        .map(record => {
-
-                            const late =
-                                record.overdueSeconds > 1;
-
-
-                            return `
-                                <div class="history-item">
-
-                                    <div class="history-time">
-                                        ${formatTime(record.fullAt)}
-                                    </div>
-
-                                    <div class="history-details">
-
-                                        <div class="history-date">
-                                            ${formatDate(record.checkedAt)}
-                                        </div>
-
-                                        <div>
-                                            Checked at
-                                            ${formatTimeWithSeconds(record.checkedAt)}
-                                        </div>
-
-                                        <div class="${late ? "history-late" : "history-on-time"}">
-                                            ${
-                                                late
-                                                    ? `⚠ ${formatLateDuration(record.overdueSeconds)} late`
-                                                    : "✓ On time"
-                                            }
-                                        </div>
-
-                                    </div>
-
-                                    <div class="history-icon">
-                                        ${late ? "⚠️" : "✅"}
-                                    </div>
-
-                                </div>
-                            `;
-                        })
-                        .join("");
-            }
-
-
-            /* ========================================================
-               MAIN UI
-               ======================================================== */
-
-            function render() {
-
-                recomputeState();
-
-
-                const max =
-                    config.maxEnergy;
-
-
-                const current =
-                    state.currentEnergy;
-
-
-                /* ----------------------------------------------------
-                   Energy
-                   ---------------------------------------------------- */
-
-                dom.energyCurrent.textContent =
-                    current;
-
-                dom.energyMax.textContent =
-                    max;
-
-                dom.energySuffix.textContent =
-                    `/ ${max}`;
-
-                dom.energyInput.max =
-                    max;
-
-
-                /* ----------------------------------------------------
-                   Progress
-                   ---------------------------------------------------- */
-
-                const percentage =
-                    max > 0
-                        ? (current / max) * 100
-                        : 0;
-
-
-                const roundedPercentage =
-                    Math.round(
-                        clamp(
-                            percentage,
-                            0,
-                            100
-                        )
-                    );
-
-
-                dom.progressBar.style.width =
-                    `${roundedPercentage}%`;
-
-                dom.progressPercent.textContent =
-                    `${roundedPercentage}%`;
-
-                dom.progressTrack.setAttribute(
-                    "aria-valuemax",
-                    String(max)
-                );
-
-                dom.progressTrack.setAttribute(
-                    "aria-valuenow",
-                    String(current)
-                );
-
-
-                /* ----------------------------------------------------
-                   Determine state
-                   ---------------------------------------------------- */
-
-                if (
-                    state.waitingForCheck
-                ) {
-
-                    dom.status.className =
-                        "status status-full";
-
-                    dom.status.textContent =
-                        "✅ ENERGY FULL — ready to check!";
-
-                    dom.countdown.textContent =
-                        "⚡ FULL";
-
-                    dom.fullAt.innerHTML =
-                        `Full at <strong>${formatTimeWithSeconds(state.fullAt)}</strong>`;
-
-
-                    dom.startBtn.textContent =
-                        "FULL";
-
-                    dom.startBtn.disabled =
-                        true;
-
-
-                    dom.checkSection.hidden =
-                        false;
-
-
-                    dom.trackerCard.classList.add(
-                        "full"
-                    );
-
-
-                    maybeNotifyFull();
-
-                } else if (
-                    state.fullAt !== null
-                ) {
-
-                    const remainingSeconds =
-                        Math.max(
-                            0,
-                            (
-                                state.fullAt -
-                                now()
-                            ) / 1000
-                        );
-
-
-                    dom.status.className =
-                        "status status-counting";
-
-                    dom.status.textContent =
-                        `⏳ Recharging · ${current}/${max}`;
-
-
-                    dom.countdown.textContent =
-                        formatDuration(
-                            remainingSeconds
-                        );
-
-
-                    dom.fullAt.innerHTML =
-                        `Full at <strong>${formatTimeWithSeconds(state.fullAt)}</strong>`;
-
-
-                    dom.startBtn.textContent =
-                        "TRACKING";
-
-                    dom.startBtn.disabled =
-                        true;
-
-
-                    dom.checkSection.hidden =
-                        true;
-
-
-                    dom.trackerCard.classList.remove(
-                        "full"
-                    );
-
-                } else {
-
-                    dom.status.className =
-                        "status status-idle";
-
-                    dom.status.textContent =
-                        "Enter your current energy to begin.";
-
-
-                    dom.countdown.textContent =
-                        "--:--:--";
-
-
-                    dom.fullAt.innerHTML =
-                        "Full at <strong>--</strong>";
-
-
-                    dom.startBtn.textContent =
-                        "START";
-
-                    dom.startBtn.disabled =
-                        false;
-
-
-                    dom.checkSection.hidden =
-                        true;
-
-
-                    dom.trackerCard.classList.remove(
-                        "full"
-                    );
-                }
-
-
-                updateStats();
-
-                updateHistory();
-
-                updateSettingsUI();
-            }
-
-
-            /* ========================================================
-               TIMER LOOP
-               ======================================================== */
-
-            function startTimer() {
-
-                if (timer !== null) {
-                    clearInterval(timer);
-                }
-
-
-                timer =
-                    setInterval(() => {
-
-                        const currentSecond =
-                            Math.floor(
-                                Date.now() / 1000
-                            );
-
-
-                        /*
-                         * Avoid unnecessary full rendering more than
-                         * once per second.
-                         */
-
-                        if (
-                            currentSecond ===
-                            lastRenderedSecond
-                        ) {
-                            return;
-                        }
-
-
-                        lastRenderedSecond =
-                            currentSecond;
-
-
-                        const wasWaiting =
-                            state.waitingForCheck;
-
-
-                        recomputeState();
-
-
-                        if (
-                            state.waitingForCheck &&
-                            !wasWaiting
-                        ) {
-
-                            saveState();
-                        }
-
-
-                        render();
-
-                    }, 250);
-            }
-
-
-            /* ========================================================
-               EVENTS
-               ======================================================== */
-
-            dom.startBtn.addEventListener(
-                "click",
-                () => {
-
-                    const raw =
-                        dom.energyInput.value.trim();
-
-
-                    if (raw === "") {
-
-                        showInputError(
-                            "Enter your current energy first."
-                        );
-
-                        dom.energyInput.focus();
-
-                        return;
-                    }
-
-
-                    const value =
-                        Number(raw);
-
-
-                    if (
-                        !Number.isInteger(value)
-                    ) {
-
-                        showInputError(
-                            "Energy must be a whole number."
-                        );
-
-                        dom.energyInput.focus();
-
-                        return;
-                    }
-
-
-                    if (
-                        value < 0 ||
-                        value > config.maxEnergy
-                    ) {
-
-                        showInputError(
-                            `Enter a value from 0 to ${config.maxEnergy}.`
-                        );
-
-                        dom.energyInput.focus();
-
-                        return;
-                    }
-
-
-                    startTracking(value);
-
-                    dom.energyInput.value =
-                        "";
-
-                    dom.energyInput.blur();
-                }
-            );
-
-
-            dom.checkBtn.addEventListener(
-                "click",
-                doCheck
-            );
-
-
-            dom.energyInput.addEventListener(
-                "input",
-                clearInputError
-            );
-
-
-            dom.energyInput.addEventListener(
-                "keydown",
-                event => {
-
-                    if (
-                        event.key ===
-                        "Enter"
-                    ) {
-
-                        event.preventDefault();
-
-                        dom.startBtn.click();
-                    }
-                }
-            );
-
-
-            dom.settingsToggle.addEventListener(
-                "click",
-                () => {
-
-                    dom.settingsPanel.classList.toggle(
-                        "open"
-                    );
-
-                    updateSettingsUI();
-                }
-            );
-
-
-            dom.settingsClose.addEventListener(
-                "click",
-                () => {
-
-                    dom.settingsPanel.classList.remove(
-                        "open"
-                    );
-                }
-            );
-
-
-            dom.settingMaxEnergy.addEventListener(
-                "change",
-                applySettings
-            );
-
-
-            dom.settingSecPerEnergy.addEventListener(
-                "change",
-                applySettings
-            );
-
-
-            dom.testModeBtn.addEventListener(
-                "click",
-                toggleTestMode
-            );
-
-
-            dom.notificationBtn.addEventListener(
-                "click",
-                enableNotifications
-            );
-
-
-            dom.clearDataBtn.addEventListener(
-                "click",
-                () => {
-
-                    const confirmed =
-                        confirm(
-                            "Delete all tracker data and history?"
-                        );
-
-
-                    if (!confirmed) {
-                        return;
-                    }
-
-
-                    localStorage.removeItem(
-                        STORAGE_KEY
-                    );
-
-
-                    state.currentEnergy =
-                        0;
-
-                    state.startingEnergy =
-                        0;
-
-                    state.trackingStartedAt =
-                        null;
-
-                    state.fullAt =
-                        null;
-
-                    state.waitingForCheck =
-                        false;
-
-                    state.history =
-                        [];
-
-                    state.notificationsEnabled =
-                        false;
-
-                    state.testMode =
-                        false;
-
-                    config =
-                        {
-                            ...DEFAULT_CONFIG
-                        };
-
-
-                    notificationWasShownForCurrentCycle =
-                        false;
-
-
-                    render();
-
-                    updateSettingsUI();
-
-                    dom.settingsPanel.classList.remove(
-                        "open"
-                    );
-
-                }
-            );
-
-
-            /* ========================================================
-               PAGE VISIBILITY
-               ======================================================== */
-
-            document.addEventListener(
-                "visibilitychange",
-                () => {
-
-                    /*
-                     * When returning to the page, immediately
-                     * recalculate everything from the clock.
-                     */
-
-                    if (
-                        !document.hidden
-                    ) {
-
-                        recomputeState();
-
-                        render();
-                    }
-                }
-            );
-
-
-            /* ========================================================
-               INITIALIZATION
-               ======================================================== */
-
-            function init() {
-
-                loadState();
-
-
-                /*
-                 * Restore consistency after loading.
-                 */
-
-                state.currentEnergy =
-                    clamp(
-                        state.currentEnergy,
-                        0,
-                        config.maxEnergy
-                    );
-
-
-                if (
-                    state.fullAt !== null &&
-                    now() >= state.fullAt
-                ) {
-
-                    state.currentEnergy =
-                        config.maxEnergy;
-
-                    state.waitingForCheck =
-                        true;
-                }
-
-
-                /*
-                 * If this somehow happens:
-                 *
-                 * waitingForCheck = true
-                 * but no fullAt
-                 *
-                 * recover safely.
-                 */
-
-                if (
-                    state.waitingForCheck &&
-                    state.fullAt === null
-                ) {
-
-                    state.waitingForCheck =
-                        false;
-                }
-
-
-                updateSettingsUI();
-
-                render();
-
-                startTimer();
-
-
-                console.log(
-                    "🔋 Vault Energy Tracker initialized"
-                );
-
-                console.log(
-                    "Config:",
-                    config
-                );
-
-                console.log(
-                    "State:",
-                    state
-                );
-            }
-
-
-            init();
-
-        })();
-    </script>
+        /js/
+            app.js
+            state.js
+            storage.js
+            energy.js
+            history.js
+            analytics.js
+            notifications.js
+            navigation.js
+    -->
 
 </body>
-  </html>
+    </html>
